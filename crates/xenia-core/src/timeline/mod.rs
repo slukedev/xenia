@@ -121,6 +121,9 @@ pub enum MessageContent {
         media: MediaInfo,
         duration_ms: Option<u64>,
         caption: Option<String>,
+        /// A GIF sent as a short silent video (WhatsApp and Telegram do): it plays muted and
+        /// looping, without controls.
+        is_gif: bool,
     },
     Audio {
         source: String,

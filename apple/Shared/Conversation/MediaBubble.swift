@@ -3,19 +3,29 @@ import SwiftUI
 
 /// A photo or video, shown at its own shape, with the caption in a bubble below. Clicking opens
 /// Quick Look, zooming out of the bubble (it plays videos, zooms photos, and shares or saves
-/// either).
+/// either). A GIF plays in the bubble, muted and looping, while it's on screen; with animations
+/// turned off it waits, badged, for a tap.
 struct MediaBubble: View {
     let message: TimelineMessage
     let media: MediaInfo
     let caption: String?
     let isVideo: Bool
     var durationMs: UInt64? = nil
+    var isGif = false
 
     @Environment(AppModel.self) private var model
     @Environment(\.conversationContext) private var context
     @Environment(\.displayScale) private var scale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityPlayAnimatedImages) private var playsAnimatedImages
+    @Environment(\.scenePhase) private var scenePhase
     @State private var image: PlatformImage?
     @State private var blur: CGImage?
+    /// A GIF's file, once it's downloaded to play, by source: a reused row may hold another's.
+    @State private var gif: (source: String, file: URL)?
+    /// The GIF tapped to play while animations are off.
+    @State private var tappedSource: String?
+    @State private var isVisible = false
 
     var body: some View {
         VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 3) {
@@ -42,7 +52,10 @@ struct MediaBubble: View {
                             .font(.title2)
                             .foregroundStyle(.secondary)
                     }
-                    if isVideo && !opening {
+                    if let gifFile, wantsToPlay {
+                        LoopingVideo(url: gifFile, isPlaying: isPlaying)
+                    }
+                    if isVideo && !isGif && !opening {
                         Image(systemName: "play.fill")
                             .font(.title2)
                             .foregroundStyle(.white)
@@ -63,7 +76,18 @@ struct MediaBubble: View {
                     }
                 }
                 .overlay(alignment: .bottomLeading) {
-                    if isVideo, let durationMs, durationMs > 0 {
+                    if isGif && !wantsToPlay {
+                        Text(Copy.gif)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Theme.Spacing.xs)
+                            .padding(.vertical, Theme.Spacing.xxs)
+                            .background(.ultraThinMaterial, in: .capsule)
+                            .environment(\.colorScheme, .dark)
+                            .padding(.leading, Theme.Spacing.s + (tail == .leading ? BubbleShape.tailWidth : 0))
+                            .padding(.bottom, Theme.Spacing.s - 2)
+                            .accessibilityHidden(true)
+                    } else if isVideo && !isGif, let durationMs, durationMs > 0 {
                         Text(Duration.milliseconds(Int64(durationMs)).formatted(.time(pattern: .minuteSecond)))
                             .font(.caption2.weight(.semibold).monospacedDigit())
                             .foregroundStyle(.white)
@@ -89,9 +113,9 @@ struct MediaBubble: View {
             .attachmentDrag(message, previewer: context.previewer) {
                 if let shown { Image(platformImage: shown).resizable().scaledToFit().frame(maxWidth: 160, maxHeight: 160) }
             }
-            .accessibilityLabel(Text(isVideo ? "Video" : "Photo"))
-            .accessibilityValue(isVideo && durationMs != nil ? Text(Duration.milliseconds(Int64(durationMs ?? 0)).formatted(.units(allowed: [.minutes, .seconds], width: .wide))) : Text(""))
-            .accessibilityHint(Text("Opens it full size"))
+            .accessibilityLabel(isGif ? Text(Copy.gif) : Text(isVideo ? "Video" : "Photo"))
+            .accessibilityValue(isVideo && !isGif && durationMs != nil ? Text(Duration.milliseconds(Int64(durationMs ?? 0)).formatted(.units(allowed: [.minutes, .seconds], width: .wide))) : Text(""))
+            .accessibilityHint(isGif && !wantsToPlay ? Text(Copy.gifPlayHint) : Text("Opens it full size"))
             if let caption {
                 TextBubble(message: message.withoutReply) {
                     Text(caption)
@@ -102,6 +126,38 @@ struct MediaBubble: View {
             await loadBlur()
             await load()
         }
+        .task(id: isPlaying ? media.source : nil) {
+            await loadGif()
+        }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+    }
+
+    private var gifFile: URL? {
+        gif?.source == media.source ? gif?.file : nil
+    }
+
+    private var playsOnRequest: Bool {
+        tappedSource == media.source
+    }
+
+    /// A GIF plays on its own, unless Reduce Motion is on or animated images are turned off;
+    /// then only once it's tapped.
+    private var wantsToPlay: Bool {
+        isGif && (playsOnRequest || (playsAnimatedImages && !reduceMotion))
+    }
+
+    /// Only while someone can see it, so a conversation full of GIFs runs one player per GIF on
+    /// screen, and none in the background.
+    private var isPlaying: Bool {
+        wantsToPlay && isVisible && scenePhase == .active && model.isActive
+    }
+
+    private func loadGif() async {
+        guard isPlaying, gifFile == nil, let previewer = context.previewer, let attachment = MessageAttachment(message)
+        else { return }
+        let source = media.source
+        if let file = await previewer.file(for: attachment) { gif = (source, file) }
     }
 
     /// The last photo of a run wears the bubble's tail (unless a caption bubble follows it,
@@ -156,6 +212,10 @@ struct MediaBubble: View {
     private var failed: Bool { context.previewer?.failedIDs.contains(message.id) == true }
 
     private func open() {
+        if isGif && !wantsToPlay {
+            tappedSource = media.source
+            return
+        }
         context.previewer?.open(message.id)
     }
 }

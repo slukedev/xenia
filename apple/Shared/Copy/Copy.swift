@@ -57,6 +57,17 @@ enum Copy {
         }
     }
 
+    /// A video sent as a GIF (WhatsApp and Telegram send them that way): its badge, and what
+    /// VoiceOver calls it.
+    static var gif: String {
+        String(localized: "GIF", comment: "A short silent looping video, as messaging apps call it")
+    }
+
+    /// What tapping a GIF does while animations are off.
+    static var gifPlayHint: String {
+        String(localized: "Plays it")
+    }
+
     // MARK: Notes
 
     static func note(_ note: Note) -> String {

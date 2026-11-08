@@ -23,7 +23,7 @@ extension TimelineMessage {
     var plainText: String? {
         switch content {
         case .text(_, let plain, _, _): plain
-        case .image(_, let caption), .video(_, _, let caption): caption
+        case .image(_, let caption), .video(_, _, let caption, _): caption
         case .file(_, let name, _, _, let caption): caption ?? name
         default: nil
         }
@@ -32,7 +32,7 @@ extension TimelineMessage {
     /// A photo's or video's BlurHash, for the soft preview before it arrives.
     var blurhash: String? {
         switch content {
-        case .image(let media, _), .video(let media, _, _): media.blurhash
+        case .image(let media, _), .video(let media, _, _, _): media.blurhash
         default: nil
         }
     }
@@ -46,7 +46,7 @@ extension TimelineMessage {
             case .normal: .text(text: plain)
             }
         case .image(_, let caption): .image(caption: caption)
-        case .video(_, _, let caption): .video(caption: caption)
+        case .video(_, _, let caption, _): .video(caption: caption)
         case .audio(_, _, _, _, _, let isVoice, let caption): isVoice ? .voice : .audio(caption: caption)
         case .file(_, let name, _, _, let caption): .file(name: name, caption: caption)
         case .sticker(_, let description): .sticker(description: description)

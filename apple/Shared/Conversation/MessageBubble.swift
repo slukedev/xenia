@@ -51,8 +51,8 @@ struct MessageBubble: View {
             }
         case .image(let media, let caption):
             MediaBubble(message: message, media: media, caption: caption, isVideo: false)
-        case .video(let media, let duration, let caption):
-            MediaBubble(message: message, media: media, caption: caption, isVideo: true, durationMs: duration)
+        case .video(let media, let duration, let caption, let isGif):
+            MediaBubble(message: message, media: media, caption: caption, isVideo: true, durationMs: duration, isGif: isGif)
         case .sticker(let media, _):
             StickerView(media: media)
         case .file(_, _, _, _, let caption):
@@ -109,7 +109,11 @@ struct MessageBubble: View {
 
     private var accessibilityLabel: Text {
         let sender = message.isOwn ? String(localized: "You") : message.senderName
-        let body = Copy.preview(of: message.body, sender: sender)
+        let body = if case .video(_, _, let caption, true) = message.content {
+            caption ?? Copy.gif
+        } else {
+            Copy.preview(of: message.body, sender: sender)
+        }
         let time = TimeFormat.clock(message.timestampMs)
         return Text("\(sender), \(body), \(time)")
     }

@@ -2,9 +2,13 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use matrix_sdk::ruma::events::{
-    poll::start::PollKind,
-    room::{ImageInfo, MediaSource, message::MessageType},
+use matrix_sdk::ruma::{
+    events::{
+        AnySyncTimelineEvent,
+        poll::start::PollKind,
+        room::{ImageInfo, MediaSource, message::MessageType},
+    },
+    serde::Raw as RawJson,
 };
 use matrix_sdk_ui::timeline::{
     EventSendState, EventTimelineItem, InReplyToDetails, MsgLikeContent, MsgLikeKind, PollResult, TimelineDetails,
@@ -99,7 +103,11 @@ fn event_row(id: String, event: &EventTimelineItem, cx: &Context<'_>) -> Option<
         return None;
     }
 
-    let (content_row, is_edited) = message_content(msg, cx.me, event.is_own(), cx.people);
+    let (mut content_row, is_edited) = message_content(msg, cx.me, event.is_own(), cx.people);
+    if let MessageContent::Video { is_gif, .. } = &mut content_row {
+        // The SDK drops the bridges' custom fields, so they're read from the event's JSON.
+        *is_gif = event.original_json().is_some_and(event_plays_as_gif);
+    }
     let event_id = event.event_id().map(|e| e.to_string());
     let send_state = match event.send_state() {
         None | Some(EventSendState::Sent { .. }) => SendState::Sent,
@@ -160,6 +168,24 @@ fn event_row(id: String, event: &EventTimelineItem, cx: &Context<'_>) -> Option<
         seen: None,
         is_highlighted: false,
     })))
+}
+
+fn event_plays_as_gif(raw: &RawJson<AnySyncTimelineEvent>) -> bool {
+    raw.get_field::<serde_json::Value>("content").ok().flatten().is_some_and(|content| plays_as_gif(&content))
+}
+
+/// Whether a video is a GIF in disguise, as the mautrix bridges mark one: `fi.mau.gif`, or the
+/// looping, autoplaying, silent trio they also send. Read at the top level and in `info`, since
+/// clients put them in either.
+fn plays_as_gif(content: &serde_json::Value) -> bool {
+    let flag = |key: &str| {
+        content
+            .get(key)
+            .or_else(|| content.get("info").and_then(|info| info.get(key)))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    };
+    flag("fi.mau.gif") || (flag("fi.mau.loop") && flag("fi.mau.autoplay") && flag("fi.mau.no_audio"))
 }
 
 fn is_message_like_redactable(kind: &MsgLikeKind) -> bool {
@@ -223,6 +249,7 @@ pub(crate) fn message_content(msg: &MsgLikeContent, me: &str, is_own: bool, peop
                             .and_then(|i| i.duration)
                             .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX)),
                         caption: caption_of(c.caption()),
+                        is_gif: false,
                     }
                 }
                 MessageType::Audio(c) => MessageContent::Audio {
@@ -430,7 +457,46 @@ fn thread_summary(msg: &MsgLikeContent, root: Option<&str>, cx: &Context<'_>) ->
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
+
+    #[test]
+    fn bridged_gifs_play_as_gifs_and_other_videos_do_not() {
+        assert!(plays_as_gif(&json!({ "msgtype": "m.video", "fi.mau.gif": true })));
+        assert!(plays_as_gif(&json!({ "msgtype": "m.video", "info": { "fi.mau.gif": true } })));
+        assert!(plays_as_gif(&json!({
+            "msgtype": "m.video",
+            "info": { "fi.mau.loop": true, "fi.mau.autoplay": true, "fi.mau.no_audio": true },
+        })));
+
+        assert!(!plays_as_gif(&json!({ "msgtype": "m.video", "info": { "duration": 3000 } })));
+        assert!(!plays_as_gif(&json!({ "msgtype": "m.video", "fi.mau.gif": false })));
+        assert!(!plays_as_gif(&json!({ "msgtype": "m.video", "fi.mau.gif": "true" })));
+        // Looping with sound is still a video.
+        assert!(!plays_as_gif(&json!({ "info": { "fi.mau.loop": true, "fi.mau.autoplay": true } })));
+    }
+
+    #[test]
+    fn a_gif_is_read_from_the_whole_event() {
+        let event = |content: serde_json::Value| {
+            RawJson::<AnySyncTimelineEvent>::from_json_string(
+                json!({
+                    "type": "m.room.message",
+                    "event_id": "$a",
+                    "sender": "@whatsapp_1:x",
+                    "origin_server_ts": 1,
+                    "content": content,
+                })
+                .to_string(),
+            )
+            .unwrap()
+        };
+        assert!(event_plays_as_gif(&event(
+            json!({ "msgtype": "m.video", "body": "", "url": "mxc://x/y", "fi.mau.gif": true })
+        )));
+        assert!(!event_plays_as_gif(&event(json!({ "msgtype": "m.video", "body": "", "url": "mxc://x/y" }))));
+    }
 
     fn poll(votes: &[(&str, &[&str])], is_ended: bool, is_own: bool) -> (Vec<PollAnswer>, u32, bool) {
         let votes: HashMap<String, Vec<String>> = votes

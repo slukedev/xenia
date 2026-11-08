@@ -181,6 +181,7 @@ struct MediaViewer: View {
     @Bindable var state: MediaViewerState
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppModel.self) private var model
     @State private var hovering = false
 
     /// Room around the photo, as Photos leaves it.
@@ -254,7 +255,12 @@ struct MediaViewer: View {
                 zooming(area: area, source: source)
             }
         case .video:
-            if settled, let file = state.file {
+            if settled, let file = state.file, item.isGif {
+                // Opened on purpose, so it loops here whatever the motion settings; never in the background.
+                LoopingVideo(url: file, isPlaying: model.isActive, fills: false)
+                    .frame(width: area.width, height: area.height)
+                    .position(x: area.midX, y: area.midY)
+            } else if settled, let file = state.file {
                 VideoView(url: file)
                     .frame(width: area.width, height: area.height)
                     .position(x: area.midX, y: area.midY)

@@ -24,11 +24,14 @@ nonisolated struct MessageAttachment: Identifiable, Hashable, Sendable {
     /// Who sent it ("You" for me) and when, for the viewer's title.
     let sender: String
     let timestampMs: Int64
+    /// A video that plays as a GIF: muted, looping, without controls.
+    let isGif: Bool
 
     init?(_ message: TimelineMessage) {
         id = message.id
         sender = Self.sender(of: message)
         timestampMs = message.timestampMs
+        if case .video(_, _, _, let isGif) = message.content { self.isGif = isGif } else { isGif = false }
         switch message.content {
         case .image(let media, _):
             kind = .photo
@@ -37,7 +40,7 @@ nonisolated struct MessageAttachment: Identifiable, Hashable, Sendable {
             title = Self.sender(of: message)
             size = media.size
             thumbnailSource = media.thumbnail ?? media.source
-        case .video(let media, _, _):
+        case .video(let media, _, _, _):
             kind = .video
             source = media.source
             fileName = Self.fileName(media.filename, mimetype: media.mimetype, kind: .video)

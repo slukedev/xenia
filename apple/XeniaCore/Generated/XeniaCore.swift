@@ -10120,7 +10120,11 @@ public enum MessageContent: Equatable, Hashable {
     )
     case image(media: MediaInfo, caption: String?
     )
-    case video(media: MediaInfo, durationMs: UInt64?, caption: String?
+    case video(media: MediaInfo, durationMs: UInt64?, caption: String?, 
+        /**
+         * A GIF sent as a short silent video (WhatsApp and Telegram do): it plays muted and
+         * looping, without controls.
+         */isGif: Bool
     )
     case audio(source: String, filename: String, durationMs: UInt64?, size: UInt64?, mimetype: String?, isVoice: Bool, caption: String?
     )
@@ -10177,7 +10181,7 @@ public struct FfiConverterTypeMessageContent: FfiConverterRustBuffer {
         case 2: return .image(media: try FfiConverterTypeMediaInfo.read(from: &buf), caption: try FfiConverterOptionString.read(from: &buf)
         )
         
-        case 3: return .video(media: try FfiConverterTypeMediaInfo.read(from: &buf), durationMs: try FfiConverterOptionUInt64.read(from: &buf), caption: try FfiConverterOptionString.read(from: &buf)
+        case 3: return .video(media: try FfiConverterTypeMediaInfo.read(from: &buf), durationMs: try FfiConverterOptionUInt64.read(from: &buf), caption: try FfiConverterOptionString.read(from: &buf), isGif: try FfiConverterBool.read(from: &buf)
         )
         
         case 4: return .audio(source: try FfiConverterString.read(from: &buf), filename: try FfiConverterString.read(from: &buf), durationMs: try FfiConverterOptionUInt64.read(from: &buf), size: try FfiConverterOptionUInt64.read(from: &buf), mimetype: try FfiConverterOptionString.read(from: &buf), isVoice: try FfiConverterBool.read(from: &buf), caption: try FfiConverterOptionString.read(from: &buf)
@@ -10223,11 +10227,12 @@ public struct FfiConverterTypeMessageContent: FfiConverterRustBuffer {
             FfiConverterOptionString.write(caption, into: &buf)
             
         
-        case let .video(media,durationMs,caption):
+        case let .video(media,durationMs,caption,isGif):
             writeInt(&buf, Int32(3))
             FfiConverterTypeMediaInfo.write(media, into: &buf)
             FfiConverterOptionUInt64.write(durationMs, into: &buf)
             FfiConverterOptionString.write(caption, into: &buf)
+            FfiConverterBool.write(isGif, into: &buf)
             
         
         case let .audio(source,filename,durationMs,size,mimetype,isVoice,caption):
