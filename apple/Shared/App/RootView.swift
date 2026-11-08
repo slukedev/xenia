@@ -32,8 +32,9 @@ struct RootView: View {
             }
         }
         .animation(Theme.Motion.contentFade, value: model.phase)
-        .onChange(of: scenePhase) { _, phase in
-            model.setScenePhase(phase)
+        // Initially too: a scene connected in the background never changes phase to get there.
+        .onChange(of: scenePhase, initial: true) { old, phase in
+            if phase != old || phase != .inactive { model.setScenePhase(phase) }
         }
         #if os(iOS)
         .onAppear { AppLock.shared.start() }

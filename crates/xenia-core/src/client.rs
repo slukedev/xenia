@@ -166,6 +166,9 @@ pub struct XeniaClient {
     /// A sign-out is waiting for the gate: a restore waiting to retry gives up instead.
     sign_out_requested: AtomicBool,
     sign_out_wakes: tokio::sync::Notify,
+    /// The app is in the background, where iOS suspends it: a session opened meanwhile waits to
+    /// sync, since being suspended mid-write to the shared stores gets the app killed.
+    paused: tokio::sync::Mutex<bool>,
 }
 
 static TRACING: Once = Once::new();
@@ -284,7 +287,11 @@ impl XeniaClient {
             Some(Active { core: Arc::clone(&core), stored, sync: Arc::clone(&sync), hub, _tasks: tasks });
         self.set_account(Some(account.clone()));
         self.listener.on_session_changed(SessionState::SignedIn { account: account.clone() });
-        sync.start().await;
+        let paused = self.paused.lock().await;
+        if !*paused {
+            sync.start().await;
+        }
+        drop(paused);
 
         // The profile arrives a moment later; the account updates when it does.
         let this = Arc::clone(self);
@@ -561,6 +568,7 @@ impl XeniaClient {
             gate: tokio::sync::Mutex::new(()),
             sign_out_requested: AtomicBool::new(false),
             sign_out_wakes: tokio::sync::Notify::new(),
+            paused: tokio::sync::Mutex::new(false),
         })
     }
 
@@ -840,8 +848,11 @@ impl XeniaClient {
         self.show_membership.store(show, Ordering::Relaxed);
     }
 
-    /// The app went to the background (iOS suspends it; sync stops cleanly first).
+    /// The app went to the background (iOS suspends it; sync stops cleanly first). Holds for a
+    /// session restored or signed in later, until `resume`.
     pub async fn pause(&self) {
+        let mut paused = self.paused.lock().await;
+        *paused = true;
         let sync = self.active.read().await.as_ref().map(|a| Arc::clone(&a.sync));
         if let Some(sync) = sync {
             run(async move { sync.stop().await }).await;
@@ -850,6 +861,8 @@ impl XeniaClient {
 
     /// The app came back: sync picks up where it left off.
     pub async fn resume(&self) {
+        let mut paused = self.paused.lock().await;
+        *paused = false;
         let sync = self.active.read().await.as_ref().map(|a| Arc::clone(&a.sync));
         if let Some(sync) = sync {
             run(async move { sync.start().await }).await;
@@ -1372,6 +1385,34 @@ mod tests {
         assert_eq!(client.load_session().map(|s| s.folder), Some("kept".to_owned()));
         assert!(leftovers.iter().all(|path| path.exists()), "its stores are still there");
         assert!(client.pending_logouts().is_empty(), "its device isn't signed out");
+    }
+
+    /// Restores the kept session against a server that isn't there, reporting the sync state.
+    async fn restored_sync_state(pause_first: bool) -> Option<SyncState> {
+        let dir = tempfile::tempdir().expect("a folder");
+        let client = client_in(dir.path());
+        let mut session = stored("kept", "kept-token");
+        // Nothing listens there, as when offline.
+        session.homeserver_url = "http://127.0.0.1:9".into();
+        client.save_session(&session).expect("saved");
+        if pause_first {
+            client.pause().await;
+        }
+        client.clone().restore().await;
+        let sync = client.active.read().await.as_ref().map(|a| Arc::clone(&a.sync));
+        let state = sync.as_ref().map(|s| s.state().get());
+        if let Some(sync) = sync {
+            sync.stop().await;
+        }
+        state
+    }
+
+    #[tokio::test]
+    async fn a_session_restored_in_the_background_waits_to_sync() {
+        let state = restored_sync_state(true).await.expect("restored");
+        assert!(matches!(state, SyncState::Idle), "not syncing while paused: {state:?}");
+        let state = restored_sync_state(false).await.expect("restored");
+        assert!(!matches!(state, SyncState::Idle), "syncing in front: {state:?}");
     }
 
     #[test]

@@ -212,6 +212,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // A reply to a pushed notification can launch Xenia in the background: bring the session
         // up first (it's a no-op when already running).
         await model.start()
+        #if os(iOS)
+        // Also gives a reply time to leave before iOS suspends Xenia.
+        model.syncWhileAway()
+        #endif
         switch action {
         case Self.replyAction:
             guard let text = reply?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }

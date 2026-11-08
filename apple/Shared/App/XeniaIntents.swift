@@ -263,6 +263,9 @@ extension AppModel {
     /// signed out, the action says so instead of waiting for a session that won't come.
     func readyForIntent() async throws {
         await start()
+        #if os(iOS)
+        syncWhileAway()
+        #endif
         guard phase == .signedIn else {
             throw IntentError(message: String(localized: "Sign in to Xenia first."))
         }

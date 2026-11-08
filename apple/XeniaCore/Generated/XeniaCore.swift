@@ -3483,7 +3483,8 @@ public protocol XeniaClientProtocol: AnyObject, Sendable {
     func members(roomId: String) async throws  -> [Member]
     
     /**
-     * The app went to the background (iOS suspends it; sync stops cleanly first).
+     * The app went to the background (iOS suspends it; sync stops cleanly first). Holds for a
+     * session restored or signed in later, until `resume`.
      */
     func pause() async 
     
@@ -4294,7 +4295,8 @@ open func members(roomId: String)async throws  -> [Member]  {
 }
     
     /**
-     * The app went to the background (iOS suspends it; sync stops cleanly first).
+     * The app went to the background (iOS suspends it; sync stops cleanly first). Holds for a
+     * session restored or signed in later, until `resume`.
      */
 open func pause()async   {
     return
@@ -13966,7 +13968,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_xenia_core_checksum_method_xeniaclient_members() != 9689) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_xenia_core_checksum_method_xeniaclient_pause() != 64467) {
+    if (uniffi_xenia_core_checksum_method_xeniaclient_pause() != 45573) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_profile() != 42783) {

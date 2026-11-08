@@ -3,6 +3,9 @@ import OSLog
 import Observation
 import XeniaCore
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// The app's state, mirrored from the Rust core. One per process.
 ///
@@ -234,6 +237,14 @@ final class AppModel {
         // No session here but one in iCloud Keychain: say so from the first frame, instead of
         // flashing the sign-in form while it signs in.
         if phase != .signedIn, canSignInFromCloud { isSigningInFromCloud = true }
+        #if os(iOS)
+        // Launched in the background (a push, Siri, a notification's action, prewarming): the
+        // session opens without syncing, and whatever needs it live asks for it.
+        if UIApplication.shared.applicationState == .background, !isPaused {
+            pauseSync()
+            await lifecycle?.value
+        }
+        #endif
         await client.restore()
         // A session that couldn't be opened just now is kept for the next launch; signing in
         // from iCloud would replace it and its keys.
@@ -294,11 +305,46 @@ final class AppModel {
         }
         // Opened meanwhile, or never stopped: sync stays as it was.
         guard wasPaused, isPaused else { return }
+        pauseSync()
+        await lifecycle?.value
+    }
+
+    /// Stops sync, with time from iOS to finish: suspended halfway through a write to the shared
+    /// stores, Xenia would be killed.
+    private func pauseSync() {
+        isPaused = true
+        let work = BackgroundWork("Stop sync")
         lifecycle = Task { [previous = lifecycle, client] in
             await previous?.value
             await client.pause()
+            work.end()
         }
-        await lifecycle?.value
+    }
+
+    @ObservationIgnored private var awayWork: Task<Void, Never>?
+
+    /// Siri or a notification's action needs the session live while Xenia is away: sync runs for
+    /// a while, under a background task, and stops again before iOS suspends Xenia.
+    func syncWhileAway(for duration: Duration = .seconds(20)) {
+        guard isPaused || awayWork != nil else { return }
+        awayWork?.cancel()
+        let work = BackgroundWork("Sync while away")
+        if isPaused {
+            isPaused = false
+            lifecycle = Task { [previous = lifecycle, client] in
+                await previous?.value
+                await client.resume()
+            }
+        }
+        awayWork = Task { [weak self] in
+            defer { work.end() }
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled, let self else { return }
+            awayWork = nil
+            guard UIApplication.shared.applicationState == .background, !isPaused else { return }
+            pauseSync()
+            await lifecycle?.value
+        }
     }
     #endif
 
@@ -309,12 +355,12 @@ final class AppModel {
         // iPhone suspends apps in the background, so sync stops cleanly there and resumes on
         // return. Stepping aside for a moment (inactive) keeps it running. The Mac keeps syncing
         // in the background, as Messages does, so notifications arrive.
+        if phase != .inactive {
+            awayWork?.cancel()
+            awayWork = nil
+        }
         if phase == .background, !isPaused {
-            isPaused = true
-            lifecycle = Task { [previous = lifecycle, client] in
-                await previous?.value
-                await client.pause()
-            }
+            pauseSync()
         } else if phase == .active, isPaused {
             isPaused = false
             // After any pause still stopping, so sync never ends up stopped while in front.
