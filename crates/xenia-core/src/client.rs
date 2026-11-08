@@ -178,6 +178,16 @@ static TRACING: Once = Once::new();
 /// again each time a session starts here.
 const PENDING_LOGOUTS_KEY: &str = "xenia.pendingLogouts.v1";
 
+/// How long to wait before each read of my profile at launch, until one works.
+const PROFILE_RETRIES: [std::time::Duration; 6] = [
+    std::time::Duration::ZERO,
+    std::time::Duration::from_secs(5),
+    std::time::Duration::from_secs(15),
+    std::time::Duration::from_secs(60),
+    std::time::Duration::from_secs(300),
+    std::time::Duration::from_secs(900),
+];
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct PendingLogout {
     homeserver_url: String,
@@ -278,7 +288,8 @@ impl XeniaClient {
         let account = Account {
             user_id: user_id.clone(),
             display_name: None,
-            avatar_url: None,
+            // The photo from last time shows at once, offline too; the profile read replaces it.
+            avatar_url: crate::account::cached_avatar_url(&client).await,
             device_id: client.device_id().map(|d| d.to_string()).unwrap_or_default(),
             homeserver: client.homeserver().to_string().trim_end_matches('/').to_owned(),
         };
@@ -294,12 +305,10 @@ impl XeniaClient {
         drop(paused);
 
         // The profile arrives a moment later; the account updates when it does.
-        let this = Arc::clone(self);
+        self.load_profile_until_read();
+        self.watch_own_membership(&client);
         let keywords = Arc::clone(&core);
-        crate::runtime::spawn(async move {
-            this.reload_profile().await;
-            keywords.reload_keywords().await;
-        });
+        crate::runtime::spawn(async move { keywords.reload_keywords().await });
         Ok(account)
     }
 
@@ -372,29 +381,100 @@ impl XeniaClient {
         });
     }
 
-    /// Reads my name and photo from the server again.
-    pub(crate) async fn reload_profile(&self) {
-        let Ok(core) = self.core().await else { return };
-        let account = core.client.account();
-        let name = account.get_display_name().await.ok().flatten();
-        let avatar = account.get_avatar_url().await.ok().flatten();
-        let changed = {
-            let mut my_name = core.my_name.write_now();
-            let new = name.clone().unwrap_or_default();
-            let changed = *my_name != new;
-            *my_name = new;
-            changed
-        };
-        // Summaries built before the name arrived missed mentions by name.
-        if changed && let Ok(hub) = self.hub().await {
-            hub.refresh_all();
+    /// Reads my name and photo from the server again. Returns whether both could be read; a
+    /// field that couldn't keeps what was shown.
+    pub(crate) async fn reload_profile(&self) -> bool {
+        let Ok(core) = self.core().await else { return false };
+        let read = crate::account::read_own_profile(core.client.clone()).await;
+        if let Some(name) = &read.display_name {
+            let changed = {
+                let mut my_name = core.my_name.write_now();
+                let new = name.clone().unwrap_or_default();
+                let changed = *my_name != new;
+                *my_name = new;
+                changed
+            };
+            // Summaries built before the name arrived missed mentions by name.
+            if changed && let Ok(hub) = self.hub().await {
+                hub.refresh_all();
+            }
         }
         let current = self.account.read_now().clone();
         if let Some(mut current) = current {
-            current.display_name = name;
-            current.avatar_url = avatar.map(|a| a.to_string());
+            let before = current.clone();
+            if let Some(name) = read.display_name.clone() {
+                current.display_name = name;
+            }
+            if let Some(avatar) = read.avatar_url.clone() {
+                current.avatar_url = avatar;
+            }
+            if current != before {
+                self.set_account(Some(current));
+            }
+        }
+        read.is_complete()
+    }
+
+    /// Shows my photo as just set or removed here.
+    pub(crate) fn show_avatar(&self, url: Option<String>) {
+        let current = self.account.read_now().clone();
+        if let Some(mut current) = current {
+            current.avatar_url = url;
             self.set_account(Some(current));
         }
+    }
+
+    /// Reads my profile now, and again a little later while it can't be read (launched
+    /// offline, the server busy), instead of showing no name and no photo all session.
+    fn load_profile_until_read(self: &Arc<Self>) {
+        let this = Arc::downgrade(self);
+        crate::runtime::spawn(async move {
+            for wait in PROFILE_RETRIES {
+                tokio::time::sleep(wait).await;
+                let Some(this) = this.upgrade() else { return };
+                if this.reload_profile().await {
+                    return;
+                }
+            }
+            warn!("Gave up reading my profile for now");
+        });
+    }
+
+    /// My photo or name changed somewhere else (another app, another device): my membership in
+    /// each room changes with it, so a membership of mine that disagrees with what's shown
+    /// reads the profile again. At most once a minute, since a room can keep a photo of its
+    /// own for me.
+    fn watch_own_membership(self: &Arc<Self>, client: &Client) {
+        use matrix_sdk::ruma::events::room::member::{MembershipState, SyncRoomMemberEvent};
+        let this = Arc::downgrade(self);
+        let last = Arc::new(Mutex::new(None::<std::time::Instant>));
+        client.add_event_handler(move |event: SyncRoomMemberEvent| {
+            let this = this.clone();
+            let last = Arc::clone(&last);
+            async move {
+                let SyncRoomMemberEvent::Original(event) = event else { return };
+                if event.content.membership != MembershipState::Join {
+                    return;
+                }
+                let Some(this) = this.upgrade() else { return };
+                let Some(account) = this.account.read_now().clone() else { return };
+                if event.state_key.as_str() != account.user_id {
+                    return;
+                }
+                let photo = event.content.avatar_url.and_then(|u| crate::account::usable_avatar_url(u.to_string()));
+                if photo == account.avatar_url {
+                    return;
+                }
+                {
+                    let mut last = last.locked();
+                    if last.is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(60)) {
+                        return;
+                    }
+                    *last = Some(std::time::Instant::now());
+                }
+                this.reload_profile().await;
+            }
+        });
     }
 
     fn watch_connection(self: &Arc<Self>, sync: &Arc<SyncService>) -> TaskGuard {
@@ -1221,8 +1301,13 @@ impl XeniaClient {
 
     pub async fn set_display_name(&self, name: String) -> Result<()> {
         let core = self.core().await?;
-        run(async move { core.client.account().set_display_name(Some(name.trim())).await.map_err(XeniaError::from) })
-            .await?;
+        run(async move {
+            core.client.account().set_display_name(Some(name.trim())).await.map_err(|error| {
+                warn!("Couldn't change my display name: {error}");
+                XeniaError::from(error).for_profile_change()
+            })
+        })
+        .await?;
         // Rebuilds the summaries too, since mentions by name change with it.
         self.reload_profile().await;
         Ok(())

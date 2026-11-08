@@ -17,6 +17,7 @@ use crate::{
     error::{XeniaError, Result},
     runtime::run,
 };
+use tracing::warn;
 
 pub(crate) fn source_handle(source: &MediaSource) -> String {
     serde_json::to_string(source).unwrap_or_default()
@@ -73,12 +74,27 @@ fn stable_hash(text: &str) -> String {
     sha2::Sha256::digest(text.as_bytes()).iter().take(16).map(|b| format!("{b:02x}")).collect()
 }
 
-/// A square avatar thumbnail, `size_px` on a side.
+/// A square avatar thumbnail, `size_px` on a side, or the photo itself when the server can't
+/// make one. Some media repositories answer 404 for a thumbnail of an image smaller than the
+/// size asked for, or have thumbnails turned off; the app scales what arrives either way.
 pub(crate) async fn avatar_bytes(client: &Client, mxc_url: String, size_px: u32) -> Result<Vec<u8>> {
-    let source = MediaSource::Plain(OwnedMxcUri::from(mxc_url));
+    let uri = OwnedMxcUri::from(mxc_url);
+    if !uri.is_valid() {
+        warn!("Not an avatar URL: {uri:?}");
+        return Err(XeniaError::NotFound);
+    }
+    let source = MediaSource::Plain(uri.clone());
     let settings = MediaThumbnailSettings::with_method(Method::Crop, size_px.into(), size_px.into());
-    let request = MediaRequestParameters { source, format: MediaFormat::Thumbnail(settings) };
-    Ok(client.media().get_media_content(&request, true).await?)
+    let request = MediaRequestParameters { source: source.clone(), format: MediaFormat::Thumbnail(settings) };
+    let thumbnail_error = match client.media().get_media_content(&request, true).await {
+        Ok(bytes) => return Ok(bytes),
+        Err(error) => error,
+    };
+    let request = MediaRequestParameters { source, format: MediaFormat::File };
+    client.media().get_media_content(&request, true).await.map_err(|error| {
+        warn!("Couldn't load the avatar {uri}: {error} (its thumbnail: {thumbnail_error})");
+        XeniaError::from(error)
+    })
 }
 
 /// A photo scaled to fit, or whole when the server can't scale it (encrypted).
@@ -168,6 +184,25 @@ impl XeniaClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_avatar_without_a_thumbnail_comes_whole() {
+        use crate::account::tests::{MockServer, block_on_foreign, signed_in};
+        // A media repository that won't thumbnail a small image.
+        let server = MockServer::start(|method, path| match (method, path) {
+            ("GET", "/_matrix/client/v1/media/download/localhost/face") => (200, "{\"jpeg\":1}".to_owned()),
+            _ => (404, r#"{"errcode":"M_NOT_FOUND","error":"Not found"}"#.to_owned()),
+        });
+        let client = signed_in(&server);
+        let bytes =
+            block_on_foreign(run(async move { avatar_bytes(&client, "mxc://localhost/face".to_owned(), 128).await }));
+        assert_eq!(bytes, Ok(b"{\"jpeg\":1}".to_vec()));
+        assert!(server.asked("GET /_matrix/client/v1/media/thumbnail/localhost/face"));
+
+        let client = signed_in(&server);
+        let missing = block_on_foreign(run(async move { avatar_bytes(&client, "".to_owned(), 128).await }));
+        assert_eq!(missing, Err(XeniaError::NotFound));
+    }
 
     #[test]
     fn file_names_are_safe() {

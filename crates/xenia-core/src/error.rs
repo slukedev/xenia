@@ -46,6 +46,16 @@ pub enum XeniaError {
     /// The recovery key didn't unlock the backup.
     #[error("invalid recovery key")]
     InvalidRecoveryKey,
+    /// The server (or a proxy in front of it) refused something for its size (`M_TOO_LARGE`,
+    /// HTTP 413).
+    #[error("too large")]
+    TooLarge,
+    /// The server doesn't let people change their name or photo.
+    #[error("profile changes disabled: {message}")]
+    ProfileChangeDisabled { message: String },
+    /// The server refused this photo as a profile photo (its size or kind).
+    #[error("photo not accepted: {message}")]
+    PhotoNotAccepted { message: String },
     /// Anything else. `message` is for logs, not for people.
     #[error("{message}")]
     Generic { message: String },
@@ -71,6 +81,7 @@ impl XeniaError {
             ErrorKind::UserDeactivated => Self::UserDeactivated,
             ErrorKind::LimitExceeded { .. } => Self::RateLimited,
             ErrorKind::NotFound => Self::NotFound,
+            ErrorKind::TooLarge => Self::TooLarge,
             ErrorKind::Unrecognized => Self::NotAMatrixServer,
             _ => Self::Generic { message },
         }
@@ -102,6 +113,9 @@ impl XeniaError {
         } else if has("m_forbidden") {
             // Only signing in says anything about the password; anywhere else it's permission.
             Self::Forbidden { message: text.to_owned() }
+        } else if has("m_too_large") || has("[413") || has("413 payload too large") {
+            // A proxy's 413 page isn't Matrix JSON, so only the status says it.
+            Self::TooLarge
         } else if has("m_user_deactivated") {
             Self::UserDeactivated
         } else if has("m_limit_exceeded") {
@@ -131,6 +145,32 @@ impl XeniaError {
             Self::NotFound
         } else {
             Self::Generic { message: text.to_owned() }
+        }
+    }
+}
+
+impl XeniaError {
+    /// The same failure, read as the answer to changing my own name or photo. There a refusal
+    /// is the server's policy, not a conversation's permissions: Synapse says
+    /// "Changing avatar is disabled on this server" (`enable_set_avatar_url: false`) and
+    /// "This avatar is not allowed" (`max_avatar_size`, `allowed_avatar_mimetypes`), both as
+    /// M_FORBIDDEN; other servers say it with M_UNKNOWN.
+    pub(crate) fn for_profile_change(self) -> Self {
+        let lower = self.to_string().to_lowercase();
+        let photo_refused = lower.contains("avatar is not allowed")
+            || lower.contains("not an allowed")
+            || lower.contains("unsupported media type")
+            || lower.contains("m_too_large");
+        match self {
+            Self::TooLarge => Self::PhotoNotAccepted { message: "too large".to_owned() },
+            Self::Forbidden { message } | Self::Generic { message } if photo_refused => {
+                Self::PhotoNotAccepted { message }
+            }
+            Self::Forbidden { message } => Self::ProfileChangeDisabled { message },
+            Self::Generic { message } if lower.contains("disabled") || lower.contains("not allowed to change") => {
+                Self::ProfileChangeDisabled { message }
+            }
+            other => other,
         }
     }
 }
@@ -205,5 +245,33 @@ mod tests {
             XeniaError::from_text("AutoDiscovery error: well-known lookup failed [404 / M_NOT_FOUND]"),
             XeniaError::NotAMatrixServer
         );
+        // A proxy's 413 page has no Matrix error code, only the status.
+        assert_eq!(XeniaError::from_text("the server returned an error: [413] <non-json bytes>"), XeniaError::TooLarge);
+        assert_eq!(XeniaError::from_text("[413 / M_TOO_LARGE] Upload request body is too large"), XeniaError::TooLarge);
+    }
+
+    #[test]
+    fn profile_refusals_are_the_servers_policy() {
+        let forbidden = |m: &str| XeniaError::Forbidden { message: m.to_owned() };
+        assert!(matches!(
+            forbidden("[400 / M_FORBIDDEN] Changing avatar is disabled on this server").for_profile_change(),
+            XeniaError::ProfileChangeDisabled { .. }
+        ));
+        assert!(matches!(
+            forbidden("[403 / M_FORBIDDEN] This avatar is not allowed").for_profile_change(),
+            XeniaError::PhotoNotAccepted { .. }
+        ));
+        assert!(matches!(XeniaError::TooLarge.for_profile_change(), XeniaError::PhotoNotAccepted { .. }));
+        assert!(matches!(
+            XeniaError::from_text("[400 / M_UNKNOWN] Profile changes are disabled").for_profile_change(),
+            XeniaError::ProfileChangeDisabled { .. }
+        ));
+        // Anything else keeps its meaning.
+        assert_eq!(XeniaError::RateLimited.for_profile_change(), XeniaError::RateLimited);
+        assert_eq!(XeniaError::ServerUnreachable.for_profile_change(), XeniaError::ServerUnreachable);
+        assert!(matches!(
+            XeniaError::from_text("[500 / M_UNKNOWN] Internal server error").for_profile_change(),
+            XeniaError::Generic { .. }
+        ));
     }
 }

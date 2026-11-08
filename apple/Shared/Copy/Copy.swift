@@ -195,6 +195,12 @@ enum Copy {
             return String(localized: "Enter your account password to continue.")
         case .InvalidRecoveryKey:
             return String(localized: "That recovery key didn’t work. Check each character and try again.")
+        case .TooLarge:
+            return String(localized: "That’s too large for your server. Try a smaller file.")
+        case .ProfileChangeDisabled:
+            return String(localized: "Your server doesn’t allow changing your profile. Contact its administrator for help.")
+        case .PhotoNotAccepted:
+            return String(localized: "Your server didn’t accept this photo. Try a different one.")
         case .Generic:
             return String(localized: "Something went wrong. Try again in a moment.")
         }
@@ -211,6 +217,22 @@ extension Copy {
         return String(localized: "\(total), \(Int(summary.unread)) unread", comment: "Archived conversations: how many, then how many have something new")
     }
 
+    // MARK: Profile photo
+
+    /// Why the profile photo couldn't change, said about the photo where the core knows more.
+    static func profilePhotoError(_ error: Error) -> String {
+        switch error as? XeniaError {
+        case .ProfileChangeDisabled?:
+            String(localized: "Your server doesn’t allow changing your photo. Contact its administrator for help.")
+        case .PhotoNotAccepted?, .TooLarge?:
+            String(localized: "Your server didn’t accept this photo. Try a different one.")
+        default:
+            Copy.error(error)
+        }
+    }
+}
+
+extension Copy {
     // MARK: Invitations
 
     /// Where the composer would be: "Maya invited you to chat." or "Maya invited you to join."

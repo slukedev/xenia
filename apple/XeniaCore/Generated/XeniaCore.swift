@@ -12295,6 +12295,21 @@ public enum XeniaError: Swift.Error, Equatable, Hashable, Foundation.LocalizedEr
      */
     case InvalidRecoveryKey
     /**
+     * The server (or a proxy in front of it) refused something for its size (`M_TOO_LARGE`,
+     * HTTP 413).
+     */
+    case TooLarge
+    /**
+     * The server doesn't let people change their name or photo.
+     */
+    case ProfileChangeDisabled(message: String
+    )
+    /**
+     * The server refused this photo as a profile photo (its size or kind).
+     */
+    case PhotoNotAccepted(message: String
+    )
+    /**
      * Anything else. `message` is for logs, not for people.
      */
     case Generic(message: String
@@ -12343,7 +12358,14 @@ public struct FfiConverterTypeXeniaError: FfiConverterRustBuffer {
             )
         case 12: return .PasswordRequired
         case 13: return .InvalidRecoveryKey
-        case 14: return .Generic(
+        case 14: return .TooLarge
+        case 15: return .ProfileChangeDisabled(
+            message: try FfiConverterString.read(from: &buf)
+            )
+        case 16: return .PhotoNotAccepted(
+            message: try FfiConverterString.read(from: &buf)
+            )
+        case 17: return .Generic(
             message: try FfiConverterString.read(from: &buf)
             )
 
@@ -12411,8 +12433,22 @@ public struct FfiConverterTypeXeniaError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(13))
         
         
-        case let .Generic(message):
+        case .TooLarge:
             writeInt(&buf, Int32(14))
+        
+        
+        case let .ProfileChangeDisabled(message):
+            writeInt(&buf, Int32(15))
+            FfiConverterString.write(message, into: &buf)
+            
+        
+        case let .PhotoNotAccepted(message):
+            writeInt(&buf, Int32(16))
+            FfiConverterString.write(message, into: &buf)
+            
+        
+        case let .Generic(message):
+            writeInt(&buf, Int32(17))
             FfiConverterString.write(message, into: &buf)
             
         }

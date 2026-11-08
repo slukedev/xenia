@@ -308,14 +308,14 @@ struct ProfilePhotoButton: View {
             error = String(localized: "Xenia couldn’t read that image.")
             return
         }
-        do { try await model.client.setAvatar(data: jpeg, mimetype: "image/jpeg") } catch { self.error = Copy.error(error) }
+        do { try await model.client.setAvatar(data: jpeg, mimetype: "image/jpeg") } catch { self.error = Copy.profilePhotoError(error) }
     }
 
     private func remove() {
         uploading = true
         Task {
             defer { uploading = false }
-            do { try await model.client.removeAvatar() } catch { self.error = Copy.error(error) }
+            do { try await model.client.removeAvatar() } catch { self.error = Copy.profilePhotoError(error) }
         }
     }
 }

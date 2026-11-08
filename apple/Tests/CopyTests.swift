@@ -38,6 +38,18 @@ struct CopyTests {
         #expect(Copy.error(XeniaError.Forbidden(message: "M_FORBIDDEN")).contains("M_FORBIDDEN") == false)
         #expect(Copy.error(CancellationError()) == "Something went wrong. Try again in a moment.")
     }
+
+    @Test("A refused profile photo says it was the server")
+    func profilePhotoErrors() {
+        let disabled = XeniaError.ProfileChangeDisabled(message: "M_FORBIDDEN: Changing avatar is disabled on this server")
+        #expect(Copy.profilePhotoError(disabled) == "Your server doesn’t allow changing your photo. Contact its administrator for help.")
+        #expect(Copy.error(disabled).contains("profile"))
+        #expect(Copy.profilePhotoError(XeniaError.TooLarge) == "Your server didn’t accept this photo. Try a different one.")
+        #expect(Copy.profilePhotoError(XeniaError.PhotoNotAccepted(message: "This avatar is not allowed")).contains("M_") == false)
+        // Everything else reads as it does anywhere.
+        #expect(Copy.profilePhotoError(XeniaError.RateLimited) == Copy.error(XeniaError.RateLimited))
+        #expect(Copy.profilePhotoError(CancellationError()) == "Something went wrong. Try again in a moment.")
+    }
 }
 
 @Suite("Settings copy")
