@@ -39,16 +39,19 @@ pub(crate) fn unread_kind(f: &UnreadFacts) -> UnreadKind {
 /// Every word of the query starts a word in the name, address or (for a DM) the other person's
 /// ID, in any order; or appears anywhere in them.
 pub(crate) fn room_matches_query(room: &RoomSummary, query: &str) -> bool {
+    matches_query(
+        query,
+        &[&room.name, room.alias.as_deref().unwrap_or_default(), room.dm_user_id.as_deref().unwrap_or_default()],
+    )
+}
+
+/// Every word of the query starts a word in `fields`, in any order, or appears anywhere in them.
+pub(crate) fn matches_query(query: &str, fields: &[&str]) -> bool {
     let words: Vec<String> = normalize_for_search(query).split_whitespace().map(str::to_owned).collect();
     if words.is_empty() {
         return true;
     }
-    let haystack = normalize_for_search(&format!(
-        "{} {} {}",
-        room.name,
-        room.alias.as_deref().unwrap_or_default(),
-        room.dm_user_id.as_deref().unwrap_or_default()
-    ));
+    let haystack = normalize_for_search(&fields.join(" "));
     let starts: Vec<&str> =
         haystack.split(|c: char| c.is_whitespace() || "#@:._-".contains(c)).filter(|s| !s.is_empty()).collect();
     words.iter().all(|w| starts.iter().any(|s| s.starts_with(w.as_str())) || haystack.contains(w.as_str()))

@@ -37,7 +37,7 @@ use tracing::{info, warn};
 
 use crate::{
     encryption::{EncryptionStatus, watch_encryption},
-    error::{XeniaError, Result},
+    error::{Result, XeniaError},
     models::{
         Account, ArchiveSummary, ConnectionState, ListFilter, Member, NotificationMode, Person, RoomSummary, Scope,
         SessionState, SignOutReason,
@@ -301,6 +301,9 @@ impl XeniaClient {
         let paused = self.paused.lock().await;
         if !*paused {
             sync.start().await;
+            // Anything the share extension couldn't send itself goes out now. Not while paused in
+            // the background: an upload then could be suspended mid-write; `resume` sends it.
+            crate::runtime::spawn(crate::share::send_handed_off(client.clone(), self.config.data_dir.clone(), user_id));
         }
         drop(paused);
 
@@ -939,13 +942,23 @@ impl XeniaClient {
         }
     }
 
-    /// The app came back: sync picks up where it left off.
+    /// The app came back: sync picks up where it left off, and anything shared from another app
+    /// meanwhile that the share extension handed over is sent.
     pub async fn resume(&self) {
         let mut paused = self.paused.lock().await;
         *paused = false;
-        let sync = self.active.read().await.as_ref().map(|a| Arc::clone(&a.sync));
-        if let Some(sync) = sync {
-            run(async move { sync.start().await }).await;
+        let active = self.active.read().await.as_ref().map(|a| (Arc::clone(&a.sync), Arc::clone(&a.core)));
+        if let Some((sync, core)) = active {
+            let data_dir = self.config.data_dir.clone();
+            run(async move {
+                sync.start().await;
+                crate::runtime::spawn(crate::share::send_handed_off(
+                    core.client.clone(),
+                    data_dir,
+                    core.user_id.clone(),
+                ));
+            })
+            .await;
         }
     }
 

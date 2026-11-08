@@ -57,3 +57,6 @@ are). Use `libsecret` for the `SecretStore`.
 - [ ] Threads, search, new message and group, browse rooms, details.
 - [ ] Settings: account, notifications, privacy, chat backup.
 - [ ] Notifications from `on_incoming_message`, with reply and mark as read.
+- [ ] Sharing into Xenia from other apps: the platform's share target opens the session with
+      `open_share_session` and sends through `ShareSession::prepare` and `PendingShare::send`;
+      the app sends what was handed over by itself (the core does this when a session starts).

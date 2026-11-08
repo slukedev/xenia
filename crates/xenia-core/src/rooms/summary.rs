@@ -42,19 +42,7 @@ pub(crate) async fn build_summary(room: &Room, cx: SummaryContext<'_>) -> RoomSu
     let heroes = room.heroes().await;
     let hero = if is_direct { heroes.first() } else { None };
 
-    // The SDK words two names itself, in English: a chat everyone else left ("Empty Room (was
-    // Maya)") keeps the name it had, and one with no name at all falls through to what's left.
-    let name = room
-        .cached_display_name()
-        .and_then(|n| match n {
-            RoomDisplayName::Named(n) | RoomDisplayName::Aliased(n) | RoomDisplayName::Calculated(n) => Some(n),
-            RoomDisplayName::EmptyWas(n) => Some(n),
-            RoomDisplayName::Empty => None,
-        })
-        .filter(|n| !n.trim().is_empty())
-        .or_else(|| room.name())
-        .or_else(|| hero.and_then(|h| h.display_name.clone()))
-        .unwrap_or_else(|| id.clone());
+    let name = room_name(room, hero.and_then(|h| h.display_name.as_deref()));
 
     let inviter_name = if is_invite {
         room.invite_details()
@@ -129,6 +117,22 @@ pub(crate) async fn build_summary(room: &Room, cx: SummaryContext<'_>) -> RoomSu
         id,
         name,
     }
+}
+
+/// A conversation's name as the list shows it. `hero_name` is the other person's, for a chat.
+pub(crate) fn room_name(room: &Room, hero_name: Option<&str>) -> String {
+    // The SDK words two names itself, in English: a chat everyone else left ("Empty Room (was
+    // Maya)") keeps the name it had, and one with no name at all falls through to what's left.
+    room.cached_display_name()
+        .and_then(|n| match n {
+            RoomDisplayName::Named(n) | RoomDisplayName::Aliased(n) | RoomDisplayName::Calculated(n) => Some(n),
+            RoomDisplayName::EmptyWas(n) => Some(n),
+            RoomDisplayName::Empty => None,
+        })
+        .filter(|n| !n.trim().is_empty())
+        .or_else(|| room.name())
+        .or_else(|| hero_name.map(str::to_owned))
+        .unwrap_or_else(|| room.room_id().to_string())
 }
 
 fn profile_name(profile: &TimelineDetails<matrix_sdk_ui::timeline::Profile>) -> Option<String> {

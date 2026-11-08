@@ -2,12 +2,15 @@
 #
 #   cd apple && xcodegen
 #
-# Three kinds of targets:
+# Four kinds of targets:
 #   XeniaCore_iOS / XeniaCore_macOS  The Rust engine's Swift bindings, as a static framework. Its
 #                                    first build phase compiles the Rust for the platform being
 #                                    built (scripts/apple/build-core.sh).
 #   Xenia_iOS / Xenia_macOS          The apps. SwiftUI throughout; shared code in Shared/, each
 #                                    platform's own shell in iOS/ and macOS/.
+#   XeniaNotifications, XeniaConversation, XeniaShare
+#                                    App extensions: pushes, the expanded notification and the
+#                                    share sheet. Each opens the app's session from the App Group.
 #   XeniaTests, XeniaTests_iOS Swift Testing tests for the app layer, on the Mac and in the simulator.
 name: Xenia
 
@@ -115,6 +118,10 @@ targets:
         embed: true
         codeSign: true
       - target: XeniaConversation
+        platformFilter: iOS
+        embed: true
+        codeSign: true
+      - target: XeniaShare
         platformFilter: iOS
         embed: true
         codeSign: true
@@ -230,6 +237,50 @@ targets:
         INFOPLIST_FILE: NotificationConversation/Info.plist
         CODE_SIGN_ENTITLEMENTS: NotificationConversation/XeniaConversation.entitlements
         SWIFT_VERSION: "6.0"
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/XeniaCore/Generated/include
+        OTHER_SWIFT_FLAGS: -Xcc -fmodule-map-file=$(SRCROOT)/XeniaCore/Generated/include/module.modulemap
+        OTHER_LDFLAGS: $(inherited) $(XENIA_CORE_LIB) -framework Security -framework SystemConfiguration
+        TARGETED_DEVICE_FAMILY: "1"
+        APPLICATION_EXTENSION_API_ONLY: YES
+
+  # The share sheet (iPhone): sends text, links, photos, videos and files to a conversation.
+  # Opens the session like the notification extensions, without syncing.
+  XeniaShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+        excludes:
+          - "*.entitlements"
+          - "Info.plist"
+      - Shared/App/AppEnvironment.swift
+      - Shared/Copy/Copy.swift
+      - Shared/Copy/Inflect.swift
+      - Shared/Copy/ShareCopy.swift
+      - Shared/Platform/AppGroup.swift
+      - Shared/Platform/KeychainStore.swift
+      - Shared/Design/Theme.swift
+      - Shared/Design/SystemColors.swift
+      - Shared/Design/PersonColor.swift
+      - Shared/Conversation/AttachmentMaker.swift
+      - Shared/Conversation/PickedMedia.swift
+      - Shared/Media/BlurHash.swift
+      - Privacy/PrivacyInfo.xcprivacy
+    dependencies:
+      - target: XeniaCore_iOS
+        link: true
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: XeniaShare
+        ENABLE_DEBUG_DYLIB: NO
+        PRODUCT_BUNDLE_IDENTIFIER: $(XENIA_BUNDLE_ID).share
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/XeniaShare.entitlements
+        SWIFT_VERSION: "6.0"
+        # A SwiftUI sheet: its model and views live on the main actor, as in the app.
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_INCLUDE_PATHS: $(SRCROOT)/XeniaCore/Generated/include

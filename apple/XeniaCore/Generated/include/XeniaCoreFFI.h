@@ -950,6 +950,61 @@ uint64_t uniffi_xenia_core_fn_method_messagesearch_coverage(uint64_t ptr
 uint64_t uniffi_xenia_core_fn_method_messagesearch_next_batch(uint64_t ptr
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_PENDINGSHARE
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_PENDINGSHARE
+uint64_t uniffi_xenia_core_fn_clone_pendingshare(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FREE_PENDINGSHARE
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FREE_PENDINGSHARE
+void uniffi_xenia_core_fn_free_pendingshare(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_HAND_OFF
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_HAND_OFF
+uint64_t uniffi_xenia_core_fn_method_pendingshare_hand_off(uint64_t ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_NOTHING_SENT
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_NOTHING_SENT
+int8_t uniffi_xenia_core_fn_method_pendingshare_nothing_sent(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_PROGRESS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_PROGRESS
+double uniffi_xenia_core_fn_method_pendingshare_progress(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_SEND
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_PENDINGSHARE_SEND
+uint64_t uniffi_xenia_core_fn_method_pendingshare_send(uint64_t ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_SHARESESSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_SHARESESSION
+uint64_t uniffi_xenia_core_fn_clone_sharesession(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FREE_SHARESESSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FREE_SHARESESSION
+void uniffi_xenia_core_fn_free_sharesession(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_CONVERSATIONS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_CONVERSATIONS
+uint64_t uniffi_xenia_core_fn_method_sharesession_conversations(uint64_t ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_LOAD_AVATAR
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_LOAD_AVATAR
+uint64_t uniffi_xenia_core_fn_method_sharesession_load_avatar(uint64_t ptr, RustBuffer mxc_url, uint32_t size_px
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_PREPARE
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_SHARESESSION_PREPARE
+uint64_t uniffi_xenia_core_fn_method_sharesession_prepare(uint64_t ptr, RustBuffer room_id, RustBuffer items, RustBuffer comment, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_THREADLIST
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_CLONE_THREADLIST
 uint64_t uniffi_xenia_core_fn_clone_threadlist(uint64_t handle, RustCallStatus *_Nonnull out_status
@@ -1188,6 +1243,21 @@ RustBuffer uniffi_xenia_core_fn_func_effective_notification_mode(RustBuffer room
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_OPEN_PUSH_DECODER
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_OPEN_PUSH_DECODER
 uint64_t uniffi_xenia_core_fn_func_open_push_decoder(RustBuffer config, uint64_t secrets, RustBuffer extension
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_FILTER_SHARE_TARGETS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_FILTER_SHARE_TARGETS
+RustBuffer uniffi_xenia_core_fn_func_filter_share_targets(RustBuffer targets, RustBuffer query, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_OPEN_SHARE_SESSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_OPEN_SHARE_SESSION
+uint64_t uniffi_xenia_core_fn_func_open_share_session(RustBuffer config, uint64_t secrets
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_SHARES_FROM_EXTENSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_SHARES_FROM_EXTENSION
+int8_t uniffi_xenia_core_fn_func_shares_from_extension(RustBuffer items, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_FUNC_DECODE_LIST_SNAPSHOT
@@ -1525,6 +1595,24 @@ uint16_t uniffi_xenia_core_checksum_func_effective_notification_mode(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_OPEN_PUSH_DECODER
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_OPEN_PUSH_DECODER
 uint16_t uniffi_xenia_core_checksum_func_open_push_decoder(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_FILTER_SHARE_TARGETS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_FILTER_SHARE_TARGETS
+uint16_t uniffi_xenia_core_checksum_func_filter_share_targets(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_OPEN_SHARE_SESSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_OPEN_SHARE_SESSION
+uint16_t uniffi_xenia_core_checksum_func_open_share_session(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_SHARES_FROM_EXTENSION
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_FUNC_SHARES_FROM_EXTENSION
+uint16_t uniffi_xenia_core_checksum_func_shares_from_extension(void
     
 );
 #endif
@@ -2185,6 +2273,48 @@ uint16_t uniffi_xenia_core_checksum_method_messagesearch_coverage(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_MESSAGESEARCH_NEXT_BATCH
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_MESSAGESEARCH_NEXT_BATCH
 uint16_t uniffi_xenia_core_checksum_method_messagesearch_next_batch(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_HAND_OFF
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_HAND_OFF
+uint16_t uniffi_xenia_core_checksum_method_pendingshare_hand_off(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_NOTHING_SENT
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_NOTHING_SENT
+uint16_t uniffi_xenia_core_checksum_method_pendingshare_nothing_sent(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_PROGRESS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_PROGRESS
+uint16_t uniffi_xenia_core_checksum_method_pendingshare_progress(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_SEND
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_PENDINGSHARE_SEND
+uint16_t uniffi_xenia_core_checksum_method_pendingshare_send(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_CONVERSATIONS
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_CONVERSATIONS
+uint16_t uniffi_xenia_core_checksum_method_sharesession_conversations(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_LOAD_AVATAR
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_LOAD_AVATAR
+uint16_t uniffi_xenia_core_checksum_method_sharesession_load_avatar(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_PREPARE
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_SHARESESSION_PREPARE
+uint16_t uniffi_xenia_core_checksum_method_sharesession_prepare(void
     
 );
 #endif

@@ -5,7 +5,7 @@
 //! whole, ordered snapshot, coalesced so a burst of updates is one redraw.
 
 pub(crate) mod rules;
-mod summary;
+pub(crate) mod summary;
 
 use std::{
     collections::{HashMap, HashSet},

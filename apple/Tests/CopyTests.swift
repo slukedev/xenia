@@ -52,6 +52,17 @@ struct CopyTests {
     }
 }
 
+@Suite("Share copy")
+struct ShareCopyTests {
+    @Test("The share sheet counts what it sends and names where it's going")
+    func shareSheet() {
+        #expect(ShareCopy.items(1) == "1 item")
+        #expect(ShareCopy.items(3) == "3 items")
+        #expect(ShareCopy.sending(to: "Maya") == "Sending to Maya…")
+        #expect(ShareCopy.sendTo("Book Club") == "Send to Book Club")
+    }
+}
+
 @Suite("Settings copy")
 struct SettingsCopyTests {
     @Test("The hero reports the connection before the backup")

@@ -41,6 +41,7 @@ mod rooms;
 mod runtime;
 mod search;
 mod session;
+mod share;
 mod snapshot;
 mod sync;
 mod text;
@@ -61,6 +62,7 @@ pub use platform::*;
 pub use push::*;
 
 pub use search::*;
+pub use share::*;
 pub use text::*;
 pub use threads::*;
 pub use timeline::*;

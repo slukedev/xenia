@@ -1222,6 +1222,204 @@ public func FfiConverterTypeMessageSearch_lower(_ value: MessageSearch) -> UInt6
 
 
 /**
+ * A share on its way to one conversation. Sending again after a failure picks up at the step
+ * that failed.
+ */
+public protocol PendingShareProtocol: AnyObject, Sendable {
+    
+    /**
+     * Hands what hasn't been sent yet to the app, which sends it the next time it opens.
+     */
+    func handOff() async throws 
+    
+    /**
+     * Nothing has reached the server yet, so the share can still be changed or dropped.
+     */
+    func nothingSent()  -> Bool
+    
+    /**
+     * How far the share has got, from 0 to 1.
+     */
+    func progress()  -> Double
+    
+    /**
+     * Sends what hasn't been sent yet, and returns once the server has all of it. A share too
+     * large for the extension is handed to the app instead.
+     */
+    func send() async throws  -> ShareOutcome
+    
+}
+/**
+ * A share on its way to one conversation. Sending again after a failure picks up at the step
+ * that failed.
+ */
+open class PendingShare: PendingShareProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_xenia_core_fn_clone_pendingshare(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_xenia_core_fn_free_pendingshare(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Hands what hasn't been sent yet to the app, which sends it the next time it opens.
+     */
+open func handOff()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_method_pendingshare_hand_off(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_void,
+            completeFunc: ffi_xenia_core_rust_future_complete_void,
+            freeFunc: ffi_xenia_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeXeniaError_lift
+        )
+}
+    
+    /**
+     * Nothing has reached the server yet, so the share can still be changed or dropped.
+     */
+open func nothingSent() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_xenia_core_fn_method_pendingshare_nothing_sent(
+            self.uniffiCloneHandle(),$0
+    )
+})
+}
+    
+    /**
+     * How far the share has got, from 0 to 1.
+     */
+open func progress() -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_xenia_core_fn_method_pendingshare_progress(
+            self.uniffiCloneHandle(),$0
+    )
+})
+}
+    
+    /**
+     * Sends what hasn't been sent yet, and returns once the server has all of it. A share too
+     * large for the extension is handed to the app instead.
+     */
+open func send()async throws  -> ShareOutcome  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_method_pendingshare_send(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_xenia_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_xenia_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeShareOutcome_lift,
+            errorHandler: FfiConverterTypeXeniaError_lift
+        )
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePendingShare: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = PendingShare
+
+    public static func lift(_ handle: UInt64) throws -> PendingShare {
+        return PendingShare(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: PendingShare) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PendingShare {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: PendingShare, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePendingShare_lift(_ handle: UInt64) throws -> PendingShare {
+    return try FfiConverterTypePendingShare.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePendingShare_lower(_ value: PendingShare) -> UInt64 {
+    return FfiConverterTypePendingShare.lower(value)
+}
+
+
+
+
+
+
+/**
  * Opens the signed-in session in the notification extension, without syncing, and describes
  * pushed events. One per extension process; reuse it across pushes.
  */
@@ -1784,6 +1982,192 @@ public func FfiConverterTypeSecretStore_lift(_ handle: UInt64) throws -> SecretS
 #endif
 public func FfiConverterTypeSecretStore_lower(_ value: SecretStore) -> UInt64 {
     return FfiConverterTypeSecretStore.lower(value)
+}
+
+
+
+
+
+
+/**
+ * The signed-in session, opened by the share extension without syncing. One per extension
+ * process.
+ */
+public protocol ShareSessionProtocol: AnyObject, Sendable {
+    
+    /**
+     * Every conversation something can be shared to, newest activity first, from what the stores
+     * already know (the extension doesn't sync).
+     */
+    func conversations() async  -> [ShareTarget]
+    
+    /**
+     * A square avatar, `size_px` on a side.
+     */
+    func loadAvatar(mxcUrl: String, sizePx: UInt32) async throws  -> Data
+    
+    /**
+     * Gets a share ready to send to a conversation: the comment typed above it, then the items.
+     */
+    func prepare(roomId: String, items: [SharedItem], comment: String) throws  -> PendingShare
+    
+}
+/**
+ * The signed-in session, opened by the share extension without syncing. One per extension
+ * process.
+ */
+open class ShareSession: ShareSessionProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_xenia_core_fn_clone_sharesession(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_xenia_core_fn_free_sharesession(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Every conversation something can be shared to, newest activity first, from what the stores
+     * already know (the extension doesn't sync).
+     */
+open func conversations()async  -> [ShareTarget]  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_method_sharesession_conversations(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_xenia_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_xenia_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeShareTarget.lift,
+            errorHandler: nil
+            
+        )
+}
+    
+    /**
+     * A square avatar, `size_px` on a side.
+     */
+open func loadAvatar(mxcUrl: String, sizePx: UInt32)async throws  -> Data  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_method_sharesession_load_avatar(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(mxcUrl),FfiConverterUInt32.lower(sizePx)
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_xenia_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_xenia_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterData.lift,
+            errorHandler: FfiConverterTypeXeniaError_lift
+        )
+}
+    
+    /**
+     * Gets a share ready to send to a conversation: the comment typed above it, then the items.
+     */
+open func prepare(roomId: String, items: [SharedItem], comment: String)throws  -> PendingShare  {
+    return try  FfiConverterTypePendingShare_lift(try rustCallWithError(FfiConverterTypeXeniaError_lift) {
+    uniffi_xenia_core_fn_method_sharesession_prepare(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(roomId),
+        FfiConverterSequenceTypeSharedItem.lower(items),
+        FfiConverterString.lower(comment),$0
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShareSession: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = ShareSession
+
+    public static func lift(_ handle: UInt64) throws -> ShareSession {
+        return ShareSession(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: ShareSession) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShareSession {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: ShareSession, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareSession_lift(_ handle: UInt64) throws -> ShareSession {
+    return try FfiConverterTypeShareSession.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareSession_lower(_ value: ShareSession) -> UInt64 {
+    return FfiConverterTypeShareSession.lower(value)
 }
 
 
@@ -3504,7 +3888,8 @@ public protocol XeniaClientProtocol: AnyObject, Sendable {
     func restore() async 
     
     /**
-     * The app came back: sync picks up where it left off.
+     * The app came back: sync picks up where it left off, and anything shared from another app
+     * meanwhile that the share extension handed over is sent.
      */
     func resume() async 
     
@@ -4378,7 +4763,8 @@ open func restore()async   {
 }
     
     /**
-     * The app came back: sync picks up where it left off.
+     * The app came back: sync picks up where it left off, and anything shared from another app
+     * meanwhile that the share extension handed over is sent.
      */
 open func resume()async   {
     return
@@ -8557,6 +8943,113 @@ public func FfiConverterTypeSession_lower(_ value: Session) -> RustBuffer {
 
 
 /**
+ * A conversation to share to.
+ */
+public struct ShareTarget: Equatable, Hashable {
+    public let id: String
+    public let name: String
+    /**
+     * An `mxc://` URL: the room's photo, or the other person's for a chat.
+     */
+    public let avatarUrl: String?
+    /**
+     * Picks the initials' color: the other person's ID for a chat, the room's otherwise.
+     */
+    public let avatarSeed: String
+    /**
+     * A chat (drawn as a person) rather than a room.
+     */
+    public let isDirect: Bool
+    /**
+     * The other person in a one-to-one chat, for the system's share suggestions.
+     */
+    public let dmUserId: String?
+    /**
+     * The latest activity, for ordering (0 when unknown).
+     */
+    public let timestampMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, name: String, 
+        /**
+         * An `mxc://` URL: the room's photo, or the other person's for a chat.
+         */avatarUrl: String?, 
+        /**
+         * Picks the initials' color: the other person's ID for a chat, the room's otherwise.
+         */avatarSeed: String, 
+        /**
+         * A chat (drawn as a person) rather than a room.
+         */isDirect: Bool, 
+        /**
+         * The other person in a one-to-one chat, for the system's share suggestions.
+         */dmUserId: String?, 
+        /**
+         * The latest activity, for ordering (0 when unknown).
+         */timestampMs: Int64) {
+        self.id = id
+        self.name = name
+        self.avatarUrl = avatarUrl
+        self.avatarSeed = avatarSeed
+        self.isDirect = isDirect
+        self.dmUserId = dmUserId
+        self.timestampMs = timestampMs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ShareTarget: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShareTarget: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShareTarget {
+        return
+            try ShareTarget(
+                id: FfiConverterString.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                avatarUrl: FfiConverterOptionString.read(from: &buf), 
+                avatarSeed: FfiConverterString.read(from: &buf), 
+                isDirect: FfiConverterBool.read(from: &buf), 
+                dmUserId: FfiConverterOptionString.read(from: &buf), 
+                timestampMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ShareTarget, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.avatarUrl, into: &buf)
+        FfiConverterString.write(value.avatarSeed, into: &buf)
+        FfiConverterBool.write(value.isDirect, into: &buf)
+        FfiConverterOptionString.write(value.dmUserId, into: &buf)
+        FfiConverterInt64.write(value.timestampMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareTarget_lift(_ buf: RustBuffer) throws -> ShareTarget {
+    return try FfiConverterTypeShareTarget.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareTarget_lower(_ value: ShareTarget) -> RustBuffer {
+    return FfiConverterTypeShareTarget.lower(value)
+}
+
+
+/**
  * How much space Xenia's caches take on this device.
  */
 public struct StorageUsage: Equatable, Hashable {
@@ -11528,6 +12021,164 @@ public func FfiConverterTypeSessionState_lower(_ value: SessionState) -> RustBuf
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * How a share ended.
+ */
+
+public enum ShareOutcome: Equatable, Hashable {
+    
+    /**
+     * Everything reached the server.
+     */
+    case sent
+    /**
+     * What was left went to the app, which sends it the next time it opens.
+     */
+    case handedOff
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ShareOutcome: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShareOutcome: FfiConverterRustBuffer {
+    typealias SwiftType = ShareOutcome
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShareOutcome {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .sent
+        
+        case 2: return .handedOff
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ShareOutcome, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .sent:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .handedOff:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareOutcome_lift(_ buf: RustBuffer) throws -> ShareOutcome {
+    return try FfiConverterTypeShareOutcome.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShareOutcome_lower(_ value: ShareOutcome) -> RustBuffer {
+    return FfiConverterTypeShareOutcome.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * One thing shared from another app.
+ */
+
+public enum SharedItem: Equatable, Hashable {
+    
+    /**
+     * Text or a link.
+     */
+    case text(text: String
+    )
+    /**
+     * A photo, video or file, already copied somewhere the core can read.
+     */
+    case file(attachment: Attachment
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension SharedItem: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSharedItem: FfiConverterRustBuffer {
+    typealias SwiftType = SharedItem
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SharedItem {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .text(text: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .file(attachment: try FfiConverterTypeAttachment.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SharedItem, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .text(text):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(text, into: &buf)
+            
+        
+        case let .file(attachment):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeAttachment.write(attachment, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSharedItem_lift(_ buf: RustBuffer) throws -> SharedItem {
+    return try FfiConverterTypeSharedItem.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSharedItem_lower(_ value: SharedItem) -> RustBuffer {
+    return FfiConverterTypeSharedItem.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum SignOutReason: Equatable, Hashable {
     
@@ -12617,6 +13268,30 @@ fileprivate struct FfiConverterOptionTypePushDecoder: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeShareSession: FfiConverterRustBuffer {
+    typealias SwiftType = ShareSession?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeShareSession.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeShareSession.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeAccount: FfiConverterRustBuffer {
     typealias SwiftType = Account?
 
@@ -13475,6 +14150,31 @@ fileprivate struct FfiConverterSequenceTypeSession: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeShareTarget: FfiConverterRustBuffer {
+    typealias SwiftType = [ShareTarget]
+
+    public static func write(_ value: [ShareTarget], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeShareTarget.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ShareTarget] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ShareTarget]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeShareTarget.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeTextMark: FfiConverterRustBuffer {
     typealias SwiftType = [TextMark]
 
@@ -13600,6 +14300,31 @@ fileprivate struct FfiConverterSequenceTypeRichBlock: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeSharedItem: FfiConverterRustBuffer {
+    typealias SwiftType = [SharedItem]
+
+    public static func write(_ value: [SharedItem], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeSharedItem.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [SharedItem] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [SharedItem]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeSharedItem.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeTimelineRow: FfiConverterRustBuffer {
     typealias SwiftType = [TimelineRow]
 
@@ -13707,6 +14432,45 @@ public func openPushDecoder(config: ClientConfig, secrets: SecretStore, `extensi
             liftFunc: FfiConverterOptionTypePushDecoder.lift,
             errorHandler: FfiConverterTypeXeniaError_lift
         )
+}
+/**
+ * Conversations whose name, address or other person matches `query`, in the order given.
+ */
+public func filterShareTargets(targets: [ShareTarget], query: String) -> [ShareTarget]  {
+    return try!  FfiConverterSequenceTypeShareTarget.lift(try! rustCall() {
+    uniffi_xenia_core_fn_func_filter_share_targets(
+        FfiConverterSequenceTypeShareTarget.lower(targets),
+        FfiConverterString.lower(query),$0
+    )
+})
+}
+/**
+ * Opens the signed-in session for the share extension, or `None` when no one is signed in.
+ */
+public func openShareSession(config: ClientConfig, secrets: SecretStore)async throws  -> ShareSession?  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_func_open_share_session(FfiConverterTypeClientConfig_lower(config),FfiConverterTypeSecretStore_lower(secrets)
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_xenia_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_xenia_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionTypeShareSession.lift,
+            errorHandler: FfiConverterTypeXeniaError_lift
+        )
+}
+/**
+ * Whether the share extension can send these itself; if not, it hands them to the app, and the
+ * sheet says so before anything is sent.
+ */
+public func sharesFromExtension(items: [SharedItem]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_xenia_core_fn_func_shares_from_extension(
+        FfiConverterSequenceTypeSharedItem.lower(items),$0
+    )
+})
 }
 /**
  * A saved snapshot, or nothing when it's missing, damaged or from another version.
@@ -13863,6 +14627,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_xenia_core_checksum_func_open_push_decoder() != 37854) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_xenia_core_checksum_func_filter_share_targets() != 37663) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_func_open_share_session() != 47374) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_func_shares_from_extension() != 40644) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_xenia_core_checksum_func_decode_list_snapshot() != 47975) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -14016,7 +14789,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_xenia_core_checksum_method_xeniaclient_restore() != 40440) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_xenia_core_checksum_method_xeniaclient_resume() != 45557) {
+    if (uniffi_xenia_core_checksum_method_xeniaclient_resume() != 4971) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_rooms() != 28389) {
@@ -14191,6 +14964,27 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_messagesearch_next_batch() != 18844) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_pendingshare_hand_off() != 18246) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_pendingshare_nothing_sent() != 25937) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_pendingshare_progress() != 59785) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_pendingshare_send() != 42838) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_sharesession_conversations() != 15071) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_sharesession_load_avatar() != 55863) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_sharesession_prepare() != 28160) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_threadlist_load_more() != 28987) {

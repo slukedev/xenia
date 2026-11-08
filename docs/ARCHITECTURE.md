@@ -105,6 +105,23 @@ not the window's scene phase, which never updates once the window closes.
 The first team-signed Mac build to run moves the stores from the app's container into the App
 Group, as the iPhone did; older Mac builds can't find them afterwards.
 
+## Sharing
+
+On iPhone, Xenia is in the share sheet (`apple/ShareExtension`, lock holder "share"). Like the
+notification extensions it opens the session from the App Group without syncing
+(`open_share_session`), lists conversations from what the stores already hold, newest activity
+first, and sends text and links as one message and each photo, video or file after it, through
+the same attachment details the composer sends (`attachment_parts`). The message typed in the
+sheet becomes a lone file's caption. Conversations the app donates (`INSendMessageIntent`, keyed by
+room ID) appear as suggestions in the sheet's top row, and the extension donates what it sends.
+
+A share extension has about 120 MB, and the SDK holds a file and its encrypted copy in memory while
+it uploads, so files over 15 MB aren't uploaded there: the share goes to an outbox beside the
+stores (`outbox/` in the data folder), and the app queues it through its send queue when a session
+starts or comes back (`send_handed_off`). A share that fails partway can be tried again, picking
+up where it stopped, or handed to the app the same way. The sheet says success only once the
+server has everything, or once the outbox holds what's left.
+
 ## Storage and secrets
 
 Each account gets a folder under the app's data directory with the SDK's SQLite stores (state,
@@ -125,7 +142,7 @@ builds use thin LTO.
 
 - `cargo test -p xenia-core`: every pure rule (rich text, mentions, emoji, snippets, list
   filters, unread state, notification decisions, run grouping, headers, note folding, delivery,
-  error classification, server addresses).
+  error classification, server addresses, what a share sends and the share outbox).
 - Swift Testing (`apple/Tests/`): the app's words (`Copy`, `SettingsCopy`, `TimeFormat`), the
   session gate at sign-in, mention suggestions, poll votes, attachments, BlurHash, iCloud settings
   sync and the iPhone timeline layout.

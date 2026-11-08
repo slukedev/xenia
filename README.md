@@ -72,6 +72,10 @@ on iPhone and Mac, and Android, Windows and Linux can follow on the same core (s
   settings and keywords, and clear once a conversation is read anywhere. They arrive while Xenia
   is closed: the server pushes IDs only, and a Notification Service Extension decrypts the message
   on the device. On iPhone, pulling one down shows the conversation and lets you reply there.
+- **Share** (iPhone): Xenia is in the share sheet. Send text, links, photos, videos and files to
+  a conversation, with a message, and the conversations you write to most are suggested in the
+  sheet's top row. Anything too large to upload from the share sheet is sent the next time you
+  open Xenia.
 - **Verification** by comparing emoji with another of your devices or another person. Settings >
   Devices lists every session and verifies, renames or signs out each one.
 - **iCloud** keeps settings the same on every device, and with Sign In on Your Other Devices, a new
@@ -175,8 +179,9 @@ cargo run -p xenia-core --example smoke -- photo.jpg                 # headless:
 | `apple/Shared/` | SwiftUI for both platforms: `App/` (model, navigation, notifications), `Lists/`, `Conversation/`, `Threads/`, `Mentions/`, `Search/`, `Compose/`, `Info/`, `Settings/`, `SignIn/`, `Design/` (tokens), `Copy/` (every sentence). |
 | `apple/iOS/`, `apple/macOS/` | Each platform's shell: iPhone tabs; the Mac split view, menu bar commands and Settings window. |
 | `apple/NotificationService/`, `apple/NotificationConversation/` | The notification extensions: decrypting pushes, and the conversation you see when you pull a notification down. |
+| `apple/ShareExtension/` | The share extension (iPhone): sending what other apps share to a conversation. |
 | `apple/Tests/` | Swift Testing tests. |
-| `apple/Privacy/` | The privacy manifest the app and both extensions ship (required-reason APIs; no tracking, nothing collected). |
+| `apple/Privacy/` | The privacy manifest the app and its extensions ship (required-reason APIs; no tracking, nothing collected). |
 | `scripts/apple/` | The Rust build step Xcode runs, and the script that exports the icon's PNGs. |
 | `scripts/dev/` | The local homeserver and test data. |
 | `services/push-gateway/` | Xenia's push gateway (Vercel): homeserver pushes to Apple. |
@@ -196,6 +201,8 @@ cargo run -p xenia-core --example smoke -- photo.jpg                 # headless:
   service extensions in native Mac apps for "sluggish startup" before their code runs (one built
   with Mac Catalyst works). This is a macOS bug, and I've reported it to Apple through Feedback
   Assistant. While Xenia runs, even with its windows closed, notifications show the full message.
+- **Sharing on the Mac:** Xenia isn't in the Mac's share menu yet; the share extension is
+  iPhone only.
 - **Web sign-in:** servers that only allow signing in through their website (OIDC-only) aren't
   supported yet. Xenia says so on the sign-in screen before you try.
 - **Search history:** Search Everything's message index fills as this device receives and

@@ -58,8 +58,8 @@ pub(crate) async fn remove_stores(config: &ClientConfig, folder: &str) {
     }
 }
 
-/// Which process opens the stores. The app and its notification extensions share them, each
-/// holding the cross-process lock under its own name.
+/// Which process opens the stores. The app and its extensions share them, each holding the
+/// cross-process lock under its own name.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Process {
     App,
@@ -67,6 +67,8 @@ pub(crate) enum Process {
     NotificationExtension,
     /// Shows a notification's conversation and sends replies from it.
     NotificationContent,
+    /// Sends what's shared from other apps.
+    ShareExtension,
 }
 
 impl Process {
@@ -75,6 +77,7 @@ impl Process {
             Process::App => "main",
             Process::NotificationExtension => "nse",
             Process::NotificationContent => "nce",
+            Process::ShareExtension => "share",
         }
     }
 }
@@ -112,7 +115,9 @@ pub(crate) async fn build_client(
     // The search index is a folder only one process can hold; the extensions don't search.
     let search = match process {
         Process::App => SearchIndexStoreKind::EncryptedDirectory(paths.search.clone(), passphrase.to_owned()),
-        Process::NotificationExtension | Process::NotificationContent => SearchIndexStoreKind::InMemory,
+        Process::NotificationExtension | Process::NotificationContent | Process::ShareExtension => {
+            SearchIndexStoreKind::InMemory
+        }
     };
     let client = builder
         .sqlite_store_with_cache_path(&paths.data, &paths.cache, Some(passphrase))

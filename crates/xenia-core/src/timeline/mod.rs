@@ -53,7 +53,7 @@ use self::{
 use crate::{
     client::{Core, XeniaClient},
     content::{Body, Note},
-    error::{XeniaError, Result},
+    error::{Result, XeniaError},
     models::SendState,
     rooms::RoomListHub,
     runtime::{TaskGuard, run},
@@ -649,7 +649,11 @@ impl Shared {
             TimelineItemContent::MembershipChange(change) if change.user_id().as_str() == self.core.user_id => {
                 matches!(
                     change.change(),
-                    Some(MembershipChange::Joined | MembershipChange::InvitationAccepted | MembershipChange::KnockAccepted)
+                    Some(
+                        MembershipChange::Joined
+                            | MembershipChange::InvitationAccepted
+                            | MembershipChange::KnockAccepted
+                    )
                 ) || (from_invite && matches!(change.change(), Some(MembershipChange::Invited)))
             }
             _ => false,
@@ -662,7 +666,9 @@ impl Shared {
         }
         let blocked = {
             let state = self.state.locked();
-            state.is_at_start || state.history_hidden || state.history_failed_at.is_some_and(|at| at.elapsed() < HISTORY_RETRY)
+            state.is_at_start
+                || state.history_hidden
+                || state.history_failed_at.is_some_and(|at| at.elapsed() < HISTORY_RETRY)
         };
         if blocked {
             self.paginating_back.store(false, Ordering::Release);
@@ -769,6 +775,53 @@ pub(crate) fn message_content(message: &ComposedMessage) -> RoomMessageEventCont
     let mut mentions = Mentions::with_user_ids(message.mentioned_user_ids.iter().filter_map(|u| u.parse().ok()));
     mentions.room = message.mentions_room;
     RoomMessageEventContentWithoutRelation::new(msgtype).add_mentions(mentions)
+}
+
+/// What the SDK needs to send a file, from what the app made of it: its type, the details the
+/// bubble draws before it downloads, the caption and any poster frame. Shared by the composer and
+/// the share extension, so a file sent from either looks the same.
+pub(crate) struct AttachmentParts {
+    pub mime: mime::Mime,
+    pub info: AttachmentInfo,
+    pub caption: Option<TextMessageEventContent>,
+    pub thumbnail: Option<matrix_sdk::attachment::Thumbnail>,
+}
+
+pub(crate) async fn attachment_parts(attachment: &Attachment) -> AttachmentParts {
+    let mime: mime::Mime = attachment.mimetype.parse().unwrap_or(mime::APPLICATION_OCTET_STREAM);
+    let size = uint(attachment.size);
+    let info = match mime.type_() {
+        mime::IMAGE => AttachmentInfo::Image(BaseImageInfo {
+            width: uint(attachment.width.map(u64::from)),
+            height: uint(attachment.height.map(u64::from)),
+            size,
+            blurhash: attachment.blurhash.clone(),
+            is_animated: None,
+        }),
+        mime::VIDEO => AttachmentInfo::Video(BaseVideoInfo {
+            duration: attachment.duration_ms.map(std::time::Duration::from_millis),
+            width: uint(attachment.width.map(u64::from)),
+            height: uint(attachment.height.map(u64::from)),
+            size,
+            blurhash: attachment.blurhash.clone(),
+        }),
+        mime::AUDIO => AttachmentInfo::Audio(BaseAudioInfo {
+            duration: attachment.duration_ms.map(std::time::Duration::from_millis),
+            size,
+            waveform: None,
+        }),
+        _ => AttachmentInfo::File(BaseFileInfo { size }),
+    };
+    let caption = attachment.caption.as_deref().map(str::trim).filter(|c| !c.is_empty()).map(|c| {
+        FormattedBody::markdown(c)
+            .map(|f| TextMessageEventContent::html(c, f.body))
+            .unwrap_or_else(|| TextMessageEventContent::plain(c))
+    });
+    let thumbnail = match &attachment.thumbnail_path {
+        Some(path) => thumbnail(path).await,
+        None => None,
+    };
+    AttachmentParts { mime, info, caption, thumbnail }
 }
 
 /// Reads a JPEG thumbnail for an attachment. A thumbnail that can't be read is left out rather
@@ -997,39 +1050,7 @@ impl TimelineController {
         let shared = Arc::clone(&self.shared);
         let reply_to = reply_to.map(|row| shared.event_id(&row)).transpose()?;
         run(async move {
-            let mime: mime::Mime = attachment.mimetype.parse().unwrap_or(mime::APPLICATION_OCTET_STREAM);
-            let size = uint(attachment.size);
-            let info = match mime.type_() {
-                mime::IMAGE => AttachmentInfo::Image(BaseImageInfo {
-                    width: uint(attachment.width.map(u64::from)),
-                    height: uint(attachment.height.map(u64::from)),
-                    size,
-                    blurhash: attachment.blurhash.clone(),
-                    is_animated: None,
-                }),
-                mime::VIDEO => AttachmentInfo::Video(BaseVideoInfo {
-                    duration: attachment.duration_ms.map(std::time::Duration::from_millis),
-                    width: uint(attachment.width.map(u64::from)),
-                    height: uint(attachment.height.map(u64::from)),
-                    size,
-                    blurhash: attachment.blurhash.clone(),
-                }),
-                mime::AUDIO => AttachmentInfo::Audio(BaseAudioInfo {
-                    duration: attachment.duration_ms.map(std::time::Duration::from_millis),
-                    size,
-                    waveform: None,
-                }),
-                _ => AttachmentInfo::File(BaseFileInfo { size }),
-            };
-            let caption = attachment.caption.as_deref().map(str::trim).filter(|c| !c.is_empty()).map(|c| {
-                FormattedBody::markdown(c)
-                    .map(|f| TextMessageEventContent::html(c, f.body))
-                    .unwrap_or_else(|| TextMessageEventContent::plain(c))
-            });
-            let thumbnail = match &attachment.thumbnail_path {
-                Some(path) => thumbnail(path).await,
-                None => None,
-            };
+            let AttachmentParts { mime, info, caption, thumbnail } = attachment_parts(&attachment).await;
             let config =
                 AttachmentConfig { info: Some(info), caption, in_reply_to: reply_to, thumbnail, ..Default::default() };
             let source = AttachmentSource::File(PathBuf::from(&attachment.path));
