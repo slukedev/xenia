@@ -180,6 +180,9 @@ private struct RouteView: View {
                 path.append(.message(roomID: roomID, eventID: eventID))
             }
             .hidesTabBarWhenPushed()
+        case .archived(let scope):
+            ConversationList(scope: scope, isArchive: true)
+                .navigationTitle("Archived")
         }
     }
 }

@@ -21,6 +21,10 @@ use crate::{
     text::first_name,
 };
 
+/// The room tag that archives a conversation. Low priority means "show it lower", not "put it
+/// away", so archiving gets its own tag, namespaced as the spec asks of a client's tags.
+pub(crate) const ARCHIVED_TAG: &str = "dev.xenia.archived";
+
 /// What the summary needs from outside the room itself.
 pub(crate) struct SummaryContext<'a> {
     pub me: &'a str,
@@ -75,7 +79,12 @@ pub(crate) async fn build_summary(room: &Room, cx: SummaryContext<'_>) -> RoomSu
         is_muted,
     };
 
-    let favourite_order = if room.is_favourite() { favourite_order(room).await } else { None };
+    let tags = room.tags().await.ok().flatten();
+    let favourite_order =
+        if room.is_favourite() { tags.as_ref().and_then(|t| t.get(&TagName::Favorite)?.order) } else { None };
+    // A new message leaves it archived, as WhatsApp keeps archived chats: bridged bots and busy
+    // groups post all day, and bringing them back each time would undo archiving them.
+    let is_archived = !is_invite && tags.is_some_and(|t| t.contains_key(&TagName::from(ARCHIVED_TAG)));
 
     let latest = room.latest_event().await;
     let (preview, timestamp_ms, last_send_state) = preview_of(latest, is_invite, is_dm, &cx);
@@ -97,6 +106,7 @@ pub(crate) async fn build_summary(room: &Room, cx: SummaryContext<'_>) -> RoomSu
         is_favourite: room.is_favourite(),
         favourite_order,
         is_low_priority: room.is_low_priority(),
+        is_archived,
         is_invite,
         is_public: room.is_public().unwrap_or(false),
         inviter_name,
@@ -119,11 +129,6 @@ pub(crate) async fn build_summary(room: &Room, cx: SummaryContext<'_>) -> RoomSu
         id,
         name,
     }
-}
-
-async fn favourite_order(room: &Room) -> Option<f64> {
-    let tags = room.tags().await.ok().flatten()?;
-    tags.get(&TagName::Favorite)?.order
 }
 
 fn profile_name(profile: &TimelineDetails<matrix_sdk_ui::timeline::Profile>) -> Option<String> {

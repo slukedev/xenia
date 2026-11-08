@@ -121,7 +121,8 @@ enum EverythingResults {
             sections.append(EverythingSection(kind: kind, items: items, isLoading: isLoading, failed: failed))
         }
         guard !term.isEmpty else {
-            let joined = rooms.filter { !$0.isInvite }
+            // Archived conversations are found by name, never suggested.
+            let joined = rooms.filter { !$0.isInvite && !$0.isArchived }
             add(.pinned, PinOrder.sorted(joined.filter(\.isFavourite)).prefix(pinnedLimit).map(EverythingItem.conversation))
             add(.recent, joined.filter { !$0.isFavourite }.prefix(recentLimit).map(EverythingItem.conversation))
             add(.actions, actions.map(EverythingItem.action))

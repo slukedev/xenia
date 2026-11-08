@@ -114,7 +114,7 @@ struct EverythingResultsTests {
     private static func room(_ name: String, at timestamp: Int64, favourite: Bool = false, invite: Bool = false) -> RoomSummary {
         RoomSummary(
             id: "!\(name):localhost", name: name, avatarUrl: nil, avatarSeed: name, dmUserId: nil, scope: .rooms,
-            isDirect: false, isDm: false, isEncrypted: false, isFavourite: favourite, favouriteOrder: nil, isLowPriority: false,
+            isDirect: false, isDm: false, isEncrypted: false, isFavourite: favourite, favouriteOrder: nil, isLowPriority: false, isArchived: false,
             isInvite: invite, isPublic: false, inviterName: nil, topic: nil, alias: nil,
             memberCount: 3, unreadCount: 0, mentionCount: 0, isMarkedUnread: false, isMuted: false,
             notificationMode: .allMessages, hasOwnNotificationMode: false, isUnread: false, unreadKind: .none,

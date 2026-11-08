@@ -5,6 +5,8 @@ import SwiftUI
 /// the sidebar and selection shows the conversation beside it.
 struct ConversationList: View {
     let scope: Scope
+    /// Shows the list's archived conversations instead of the list.
+    var isArchive = false
 
     @Environment(AppModel.self) private var model
     @State private var leaving: RoomSummary?
@@ -14,8 +16,9 @@ struct ConversationList: View {
     @SceneStorage("xenia.roomsExpanded") private var roomsExpanded = true
 
     var body: some View {
-        let all = model.lists[scope] ?? []
-        let pinned = model.pinnedRooms(in: all, scope: scope)
+        let all = (isArchive ? model.archivedLists[scope] : model.lists[scope]) ?? []
+        let pinned = isArchive ? [] : model.pinnedRooms(in: all, scope: scope)
+        let archive = isArchive ? nil : model.archiveRow(scope)
         let pinnedIDs = Set(pinned.map(\.id))
         // Pinned conversations live in the grid, not twice.
         let rooms = pinned.isEmpty ? all : all.filter { !pinnedIDs.contains($0.id) }
@@ -39,6 +42,21 @@ struct ConversationList: View {
                     .listRowInsets(EdgeInsets(top: Theme.Spacing.s, leading: Theme.Spacing.s, bottom: Theme.Spacing.m, trailing: Theme.Spacing.s))
                     .selectionDisabled()
             }
+            #if os(macOS)
+            if isArchive {
+                Button { model.navigation.isShowingArchive = false } label: {
+                    Label("Back", systemImage: "chevron.backward")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .selectionDisabled()
+            }
+            #endif
+            if let archive {
+                archiveLink(archive)
+                    .listRowSeparator(.hidden, edges: .top)
+                    .selectionDisabled()
+            }
             if !model.roomsLoaded && rooms.isEmpty {
                 // The list's own rows, blanked: the shape of what's coming, exactly.
                 ForEach(LoadingRows.rooms) { room in
@@ -50,7 +68,7 @@ struct ConversationList: View {
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
-            } else if model.isSectioned {
+            } else if model.isSectioned && !isArchive {
                 let chats = rooms.filter { $0.scope == .chats }
                 let others = rooms.filter { $0.scope == .rooms }
                 if !chats.isEmpty {
@@ -79,7 +97,7 @@ struct ConversationList: View {
         .sensoryFeedback(.selection, trigger: swipeFeedback)
         #endif
         .overlay {
-            ListPlaceholder(scope: scope, isEmpty: all.isEmpty)
+            ListPlaceholder(scope: scope, isEmpty: all.isEmpty && archive == nil, isArchive: isArchive)
         }
         .leaveConfirmation($leaving)
         #if os(macOS)
@@ -138,11 +156,13 @@ struct ConversationList: View {
             actions.toggleRead(room)
         }
         .tint(.blue)
-        Button(room.isFavourite ? "Unpin" : "Pin", systemImage: room.isFavourite ? "pin.slash.fill" : "pin.fill") {
-            swipeFeedback += 1
-            actions.toggleFavourite(room)
+        if !room.isArchived {
+            Button(room.isFavourite ? "Unpin" : "Pin", systemImage: room.isFavourite ? "pin.slash.fill" : "pin.fill") {
+                swipeFeedback += 1
+                actions.toggleFavourite(room)
+            }
+            .tint(.yellow)
         }
-        .tint(.yellow)
     }
 
     @ViewBuilder
@@ -150,11 +170,33 @@ struct ConversationList: View {
         Button(room.isDm ? "Delete" : "Leave", systemImage: "trash.fill", role: .destructive) {
             leaving = room
         }
+        Button(room.isArchived ? "Unarchive" : "Archive",
+               systemImage: room.isArchived ? "tray.and.arrow.up.fill" : "archivebox.fill") {
+            swipeFeedback += 1
+            RoomActions(model: model).toggleArchived(room)
+        }
+        .tint(.gray)
         Button(room.isMuted ? "Unmute" : "Mute", systemImage: room.isMuted ? "bell.fill" : "bell.slash.fill") {
             swipeFeedback += 1
             RoomActions(model: model).toggleMute(room)
         }
         .tint(.indigo)
+    }
+
+    /// On iPhone it pushes the archive; in the Mac's sidebar the archive takes the list's place.
+    @ViewBuilder
+    private func archiveLink(_ summary: ArchiveSummary) -> some View {
+        #if os(macOS)
+        Button { model.navigation.isShowingArchive = true } label: {
+            ArchivedRow(summary: summary)
+        }
+        .buttonStyle(.plain)
+        #else
+        NavigationLink(value: Route.archived(scope: scope)) {
+            ArchivedRow(summary: summary)
+        }
+        .conversationRowInsets(reservesUnreadSpace: false)
+        #endif
     }
 
     /// A heading over chats or rooms: on the Mac a sidebar section that folds away, as in Mail.
@@ -205,6 +247,16 @@ struct ConversationList: View {
 extension RoomSummary: @retroactive Identifiable {}
 
 extension AppModel {
+    /// The Archived row's counts, in the plain list only (filtering and finding leave archived
+    /// conversations out), and only while there's something archived.
+    func archiveRow(_ scope: Scope) -> ArchiveSummary? {
+        guard (filters[scope] ?? .all) == .all,
+              (queries[scope] ?? "").trimmingCharacters(in: .whitespaces).isEmpty,
+              let summary = archiveSummaries[scope], summary.count > 0
+        else { return nil }
+        return summary
+    }
+
     /// Favorites pinned above the list, as Messages pins: only in the plain list (not while
     /// filtering or finding, where every match belongs in the list), never invitations. In the
     /// order they were dragged into, never by recency: pins that swapped places with every new
@@ -310,7 +362,7 @@ private enum LoadingRows {
     ].enumerated().map { index, item in
         RoomSummary(
             id: "loading-\(index)", name: item.0, avatarUrl: nil, avatarSeed: "", dmUserId: nil, scope: .chats,
-            isDirect: true, isDm: true, isEncrypted: false, isFavourite: false, favouriteOrder: nil, isLowPriority: false,
+            isDirect: true, isDm: true, isEncrypted: false, isFavourite: false, favouriteOrder: nil, isLowPriority: false, isArchived: false,
             isInvite: false, isPublic: false, inviterName: nil, topic: nil, alias: nil,
             memberCount: 2, unreadCount: 0, mentionCount: 0, isMarkedUnread: false, isMuted: false,
             notificationMode: .allMessages, hasOwnNotificationMode: false, isUnread: false, unreadKind: .none,

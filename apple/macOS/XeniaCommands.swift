@@ -118,6 +118,10 @@ struct XeniaCommands: Commands {
         Button(joined?.isFavourite == true ? "Unpin" : "Pin") {
             if let joined { actions.toggleFavourite(joined) }
         }
+        .disabled(joined == nil || joined?.isArchived == true)
+        Button(joined?.isArchived == true ? "Unarchive" : "Archive") {
+            if let joined { actions.toggleArchived(joined) }
+        }
         .disabled(joined == nil)
         Button(joined?.isMuted == true ? "Unmute" : "Mute") {
             if let joined { actions.toggleMute(joined) }
@@ -165,10 +169,10 @@ struct XeniaCommands: Commands {
         let markScope = model.isUnified ? nil : Optional(model.navigation.scope)
         Button("Mark All as Read") { actions.markAllRead(markScope) }
             .keyboardShortcut("k", modifiers: [.command, .shift])
-            // Only when there's something it would mark: invitations aren't read, and muted
-            // conversations don't count as unread.
+            // Only when there's something it would mark: invitations aren't read, muted
+            // conversations don't count as unread, and Archived is left as it is.
             .disabled(!signedIn || !model.rooms.contains { room in
-                room.isUnread && !room.isInvite && markScope.map { room.scope == $0 } ?? true
+                room.isUnread && !room.isInvite && !room.isArchived && markScope.map { room.scope == $0 } ?? true
             })
         Divider()
         Button(joined?.isDm == true ? "Delete Chat…" : "Leave Room…") { request(.leave) }

@@ -26,8 +26,8 @@ use matrix_sdk_ui::room_list_service::{
 use tokio::sync::{Notify, Semaphore};
 use tracing::warn;
 
+pub(crate) use self::summary::{ARCHIVED_TAG, SummaryContext, build_summary};
 use self::summary::{LookBack, latest_is_edit, look_further_back, with_details};
-pub(crate) use self::summary::{SummaryContext, build_summary};
 use crate::{
     client::Core,
     models::{RoomPreview, RoomSummary},

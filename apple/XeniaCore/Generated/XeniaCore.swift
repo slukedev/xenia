@@ -3416,9 +3416,20 @@ public protocol XeniaClientProtocol: AnyObject, Sendable {
     func account()  -> Account?
     
     /**
+     * What a list's Archived row says: how many are archived, and how many of those are unread.
+     */
+    func archiveSummary(rooms: [RoomSummary], scope: Scope?)  -> ArchiveSummary
+    
+    /**
      * Checks what a typed server address offers, for the sign-in screen.
      */
     func checkServer(address: String) async throws  -> ServerInfo
+    
+    /**
+     * Conversations in a list the app already holds that want attention, in one scope or
+     * everywhere (the same rule as `unread_total`).
+     */
+    func countUnread(rooms: [RoomSummary], scope: Scope?)  -> UInt32
     
     /**
      * Creates an encrypted group with a name and people. Returns the room ID.
@@ -3457,7 +3468,7 @@ public protocol XeniaClientProtocol: AnyObject, Sendable {
     func loadDraft(roomId: String, threadRoot: String?) async  -> String?
     
     /**
-     * Marks every unread conversation in a list (or everywhere) read.
+     * Marks every unread conversation in a list (or everywhere) read, leaving Archived as it is.
      */
     func markAllRead(scope: Scope?) async throws 
     
@@ -3510,6 +3521,11 @@ public protocol XeniaClientProtocol: AnyObject, Sendable {
      * People in the server's user directory.
      */
     func searchPeople(query: String) async throws  -> [Person]
+    
+    /**
+     * Archives a conversation or brings it back. It's a room tag, so every device agrees.
+     */
+    func setArchived(roomId: String, archived: Bool) async throws 
     
     func setDisplayName(name: String) async throws 
     
@@ -4019,6 +4035,19 @@ open func account() -> Account?  {
 }
     
     /**
+     * What a list's Archived row says: how many are archived, and how many of those are unread.
+     */
+open func archiveSummary(rooms: [RoomSummary], scope: Scope?) -> ArchiveSummary  {
+    return try!  FfiConverterTypeArchiveSummary_lift(try! rustCall() {
+    uniffi_xenia_core_fn_method_xeniaclient_archive_summary(
+            self.uniffiCloneHandle(),
+        FfiConverterSequenceTypeRoomSummary.lower(rooms),
+        FfiConverterOptionTypeScope.lower(scope),$0
+    )
+})
+}
+    
+    /**
      * Checks what a typed server address offers, for the sign-in screen.
      */
 open func checkServer(address: String)async throws  -> ServerInfo  {
@@ -4036,6 +4065,20 @@ open func checkServer(address: String)async throws  -> ServerInfo  {
             liftFunc: FfiConverterTypeServerInfo_lift,
             errorHandler: FfiConverterTypeXeniaError_lift
         )
+}
+    
+    /**
+     * Conversations in a list the app already holds that want attention, in one scope or
+     * everywhere (the same rule as `unread_total`).
+     */
+open func countUnread(rooms: [RoomSummary], scope: Scope?) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_xenia_core_fn_method_xeniaclient_count_unread(
+            self.uniffiCloneHandle(),
+        FfiConverterSequenceTypeRoomSummary.lower(rooms),
+        FfiConverterOptionTypeScope.lower(scope),$0
+    )
+})
 }
     
     /**
@@ -4191,7 +4234,7 @@ open func loadDraft(roomId: String, threadRoot: String?)async  -> String?  {
 }
     
     /**
-     * Marks every unread conversation in a list (or everywhere) read.
+     * Marks every unread conversation in a list (or everywhere) read, leaving Archived as it is.
      */
 open func markAllRead(scope: Scope?)async throws   {
     return
@@ -4404,6 +4447,26 @@ open func searchPeople(query: String)async throws  -> [Person]  {
             completeFunc: ffi_xenia_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_xenia_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterSequenceTypePerson.lift,
+            errorHandler: FfiConverterTypeXeniaError_lift
+        )
+}
+    
+    /**
+     * Archives a conversation or brings it back. It's a room tag, so every device agrees.
+     */
+open func setArchived(roomId: String, archived: Bool)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_xenia_core_fn_method_xeniaclient_set_archived(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(roomId),FfiConverterBool.lower(archived)
+                )
+            },
+            pollFunc: ffi_xenia_core_rust_future_poll_void,
+            completeFunc: ffi_xenia_core_rust_future_complete_void,
+            freeFunc: ffi_xenia_core_rust_future_free_void,
+            liftFunc: { $0 },
             errorHandler: FfiConverterTypeXeniaError_lift
         )
 }
@@ -5339,6 +5402,69 @@ public func FfiConverterTypeAccount_lift(_ buf: RustBuffer) throws -> Account {
 #endif
 public func FfiConverterTypeAccount_lower(_ value: Account) -> RustBuffer {
     return FfiConverterTypeAccount.lower(value)
+}
+
+
+/**
+ * The archived conversations in a list, for the row that leads to them.
+ */
+public struct ArchiveSummary: Equatable, Hashable {
+    public let count: UInt32
+    /**
+     * How many of them have something new.
+     */
+    public let unread: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(count: UInt32, 
+        /**
+         * How many of them have something new.
+         */unread: UInt32) {
+        self.count = count
+        self.unread = unread
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ArchiveSummary: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeArchiveSummary: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ArchiveSummary {
+        return
+            try ArchiveSummary(
+                count: FfiConverterUInt32.read(from: &buf), 
+                unread: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ArchiveSummary, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.count, into: &buf)
+        FfiConverterUInt32.write(value.unread, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeArchiveSummary_lift(_ buf: RustBuffer) throws -> ArchiveSummary {
+    return try FfiConverterTypeArchiveSummary.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeArchiveSummary_lower(_ value: ArchiveSummary) -> RustBuffer {
+    return FfiConverterTypeArchiveSummary.lower(value)
 }
 
 
@@ -7617,6 +7743,10 @@ public struct RoomSummary: Equatable, Hashable {
      */
     public let favouriteOrder: Double?
     public let isLowPriority: Bool
+    /**
+     * Put away in Archived, out of the main list and its badges, on every device.
+     */
+    public let isArchived: Bool
     public let isInvite: Bool
     public let isPublic: Bool
     /**
@@ -7680,7 +7810,10 @@ public struct RoomSummary: Equatable, Hashable {
          */isDm: Bool, isEncrypted: Bool, isFavourite: Bool, 
         /**
          * Where the person put this pin among the others: the favourite tag's `order`, from 0 to 1.
-         */favouriteOrder: Double?, isLowPriority: Bool, isInvite: Bool, isPublic: Bool, 
+         */favouriteOrder: Double?, isLowPriority: Bool, 
+        /**
+         * Put away in Archived, out of the main list and its badges, on every device.
+         */isArchived: Bool, isInvite: Bool, isPublic: Bool, 
         /**
          * For invitations: who invited me.
          */inviterName: String?, topic: String?, 
@@ -7718,6 +7851,7 @@ public struct RoomSummary: Equatable, Hashable {
         self.isFavourite = isFavourite
         self.favouriteOrder = favouriteOrder
         self.isLowPriority = isLowPriority
+        self.isArchived = isArchived
         self.isInvite = isInvite
         self.isPublic = isPublic
         self.inviterName = inviterName
@@ -7767,6 +7901,7 @@ public struct FfiConverterTypeRoomSummary: FfiConverterRustBuffer {
                 isFavourite: FfiConverterBool.read(from: &buf), 
                 favouriteOrder: FfiConverterOptionDouble.read(from: &buf), 
                 isLowPriority: FfiConverterBool.read(from: &buf), 
+                isArchived: FfiConverterBool.read(from: &buf), 
                 isInvite: FfiConverterBool.read(from: &buf), 
                 isPublic: FfiConverterBool.read(from: &buf), 
                 inviterName: FfiConverterOptionString.read(from: &buf), 
@@ -7802,6 +7937,7 @@ public struct FfiConverterTypeRoomSummary: FfiConverterRustBuffer {
         FfiConverterBool.write(value.isFavourite, into: &buf)
         FfiConverterOptionDouble.write(value.favouriteOrder, into: &buf)
         FfiConverterBool.write(value.isLowPriority, into: &buf)
+        FfiConverterBool.write(value.isArchived, into: &buf)
         FfiConverterBool.write(value.isInvite, into: &buf)
         FfiConverterBool.write(value.isPublic, into: &buf)
         FfiConverterOptionString.write(value.inviterName, into: &buf)
@@ -9681,6 +9817,10 @@ public enum ListFilter: Equatable, Hashable {
     case all
     case unread
     case favourites
+    /**
+     * Only archived conversations, which every other filter leaves out.
+     */
+    case archived
 
 
 
@@ -9708,6 +9848,8 @@ public struct FfiConverterTypeListFilter: FfiConverterRustBuffer {
         
         case 3: return .favourites
         
+        case 4: return .archived
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -9726,6 +9868,10 @@ public struct FfiConverterTypeListFilter: FfiConverterRustBuffer {
         
         case .favourites:
             writeInt(&buf, Int32(3))
+        
+        
+        case .archived:
+            writeInt(&buf, Int32(4))
         
         }
     }
@@ -13770,7 +13916,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_xenia_core_checksum_method_xeniaclient_account() != 57375) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_xenia_core_checksum_method_xeniaclient_archive_summary() != 34280) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_xenia_core_checksum_method_xeniaclient_check_server() != 5134) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_xeniaclient_count_unread() != 36532) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_create_group() != 30453) {
@@ -13800,7 +13952,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_xenia_core_checksum_method_xeniaclient_load_draft() != 2196) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_xenia_core_checksum_method_xeniaclient_mark_all_read() != 61052) {
+    if (uniffi_xenia_core_checksum_method_xeniaclient_mark_all_read() != 3619) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_mark_read() != 42636) {
@@ -13831,6 +13983,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_search_people() != 30924) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_xenia_core_checksum_method_xeniaclient_set_archived() != 28394) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_xenia_core_checksum_method_xeniaclient_set_display_name() != 54423) {

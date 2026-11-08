@@ -257,7 +257,7 @@ final class PinTouchView: UIView, UIContextMenuInteractionDelegate, UIDragIntera
 }
 
 /// A pin's menu on iPhone, made in UIKit to lift the pin from its own place. The same items as
-/// `RoomContextMenu`, which pins never show as an invitation.
+/// `RoomContextMenu`, which pins never show as an invitation or archived.
 enum PinMenu {
     static func make(for room: RoomSummary, actions: RoomActions, confirmLeave: @escaping (RoomSummary) -> Void) -> UIMenu {
         let read = room.isUnread
@@ -266,6 +266,7 @@ enum PinMenu {
         let pin = room.isFavourite
             ? UIAction(title: String(localized: "Unpin"), image: UIImage(systemName: "pin.slash")) { _ in actions.toggleFavourite(room) }
             : UIAction(title: String(localized: "Pin"), image: UIImage(systemName: "pin")) { _ in actions.toggleFavourite(room) }
+        let archive = UIAction(title: String(localized: "Archive"), image: UIImage(systemName: "archivebox")) { _ in actions.toggleArchived(room) }
         let current = actions.notificationMode(room)
         func mode(_ mode: NotificationMode, _ title: String, _ image: String) -> UIAction {
             UIAction(title: title, image: UIImage(systemName: image), state: mode == current ? .on : .off) { _ in actions.setMode(room, mode) }
@@ -284,7 +285,7 @@ enum PinMenu {
             image: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
             attributes: .destructive
         ) { _ in confirmLeave(room) }
-        return UIMenu(children: [read, pin, notifications, UIMenu(options: .displayInline, children: [leave])])
+        return UIMenu(children: [read, pin, archive, notifications, UIMenu(options: .displayInline, children: [leave])])
     }
 }
 #endif

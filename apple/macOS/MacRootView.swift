@@ -106,7 +106,7 @@ private struct MacSidebar: View {
             }
             Group {
                 if search.trimmed.isEmpty {
-                    ConversationList(scope: scope)
+                    ConversationList(scope: scope, isArchive: navigation.isShowingArchive)
                 } else {
                     SearchResultsList(search: search, openRoom: open)
                 }

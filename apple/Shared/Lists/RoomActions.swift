@@ -16,6 +16,11 @@ struct RoomActions {
         run { try await model.client.setFavourite(roomId: room.id, favourite: !room.isFavourite) }
     }
 
+    /// Archived conversations stay archived as messages arrive; Unarchive brings one back.
+    func toggleArchived(_ room: RoomSummary) {
+        run { try await model.client.setArchived(roomId: room.id, archived: !room.isArchived) }
+    }
+
     /// Saves the pins' order after one was dragged to a new place. `failed` puts them back.
     func arrangePins(_ ids: [String], pins: [RoomSummary], failed: @escaping @MainActor () -> Void) {
         let current = Dictionary(pins.compactMap { pin in pin.favouriteOrder.map { (pin.id, $0) } }, uniquingKeysWith: { first, _ in first })
@@ -109,9 +114,16 @@ struct RoomContextMenu: View {
                    systemImage: room.isUnread ? "checkmark.message" : "message.badge") {
                 actions.toggleRead(room)
             }
-            Button(room.isFavourite ? "Unpin" : "Pin",
-                   systemImage: room.isFavourite ? "pin.slash" : "pin") {
-                actions.toggleFavourite(room)
+            // An archived pin waits out of sight until it's unarchived.
+            if !room.isArchived {
+                Button(room.isFavourite ? "Unpin" : "Pin",
+                       systemImage: room.isFavourite ? "pin.slash" : "pin") {
+                    actions.toggleFavourite(room)
+                }
+            }
+            Button(room.isArchived ? "Unarchive" : "Archive",
+                   systemImage: room.isArchived ? "tray.and.arrow.up" : "archivebox") {
+                actions.toggleArchived(room)
             }
             Menu {
                 NotificationModePicker(room: room)

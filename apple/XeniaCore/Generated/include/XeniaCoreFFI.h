@@ -525,9 +525,19 @@ uint64_t uniffi_xenia_core_fn_method_xeniaclient_accept_invite(uint64_t ptr, Rus
 RustBuffer uniffi_xenia_core_fn_method_xeniaclient_account(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_ARCHIVE_SUMMARY
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_ARCHIVE_SUMMARY
+RustBuffer uniffi_xenia_core_fn_method_xeniaclient_archive_summary(uint64_t ptr, RustBuffer rooms, RustBuffer scope, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_CHECK_SERVER
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_CHECK_SERVER
 uint64_t uniffi_xenia_core_fn_method_xeniaclient_check_server(uint64_t ptr, RustBuffer address
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_COUNT_UNREAD
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_COUNT_UNREAD
+uint32_t uniffi_xenia_core_fn_method_xeniaclient_count_unread(uint64_t ptr, RustBuffer rooms, RustBuffer scope, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_CREATE_GROUP
@@ -628,6 +638,11 @@ uint64_t uniffi_xenia_core_fn_method_xeniaclient_save_draft(uint64_t ptr, RustBu
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_SEARCH_PEOPLE
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_SEARCH_PEOPLE
 uint64_t uniffi_xenia_core_fn_method_xeniaclient_search_people(uint64_t ptr, RustBuffer query
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_SET_ARCHIVED
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_SET_ARCHIVED
+uint64_t uniffi_xenia_core_fn_method_xeniaclient_set_archived(uint64_t ptr, RustBuffer room_id, int8_t archived
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_FN_METHOD_XENIACLIENT_SET_DISPLAY_NAME
@@ -1705,9 +1720,21 @@ uint16_t uniffi_xenia_core_checksum_method_xeniaclient_account(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_ARCHIVE_SUMMARY
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_ARCHIVE_SUMMARY
+uint16_t uniffi_xenia_core_checksum_method_xeniaclient_archive_summary(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_CHECK_SERVER
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_CHECK_SERVER
 uint16_t uniffi_xenia_core_checksum_method_xeniaclient_check_server(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_COUNT_UNREAD
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_COUNT_UNREAD
+uint16_t uniffi_xenia_core_checksum_method_xeniaclient_count_unread(void
     
 );
 #endif
@@ -1828,6 +1855,12 @@ uint16_t uniffi_xenia_core_checksum_method_xeniaclient_save_draft(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_SEARCH_PEOPLE
 #define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_SEARCH_PEOPLE
 uint16_t uniffi_xenia_core_checksum_method_xeniaclient_search_people(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_SET_ARCHIVED
+#define UNIFFI_FFIDEF_UNIFFI_XENIA_CORE_CHECKSUM_METHOD_XENIACLIENT_SET_ARCHIVED
+uint16_t uniffi_xenia_core_checksum_method_xeniaclient_set_archived(void
     
 );
 #endif

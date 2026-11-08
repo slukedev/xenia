@@ -10,6 +10,8 @@ enum Route: Hashable {
     case info(roomID: String)
     /// Words in one conversation.
     case search(roomID: String)
+    /// A list's archived conversations.
+    case archived(scope: Scope)
 }
 
 /// A thread, by its conversation and the message that started it.
@@ -61,8 +63,14 @@ final class Navigation {
     // Mac: the sidebar's list and the conversation beside it. Each list remembers its own
     // selection, so switching between Chats and Rooms returns to where you were.
     var scope: Scope = .chats {
-        didSet { if scope != oldValue { selectedRoomID = selections[scope] } }
+        didSet {
+            guard scope != oldValue else { return }
+            selectedRoomID = selections[scope]
+            isShowingArchive = false
+        }
     }
+    /// The sidebar shows the list's archived conversations in its place (Mac).
+    var isShowingArchive = false
     var selectedRoomID: String? {
         didSet { selections[scope] = selectedRoomID }
     }
@@ -168,6 +176,7 @@ final class Navigation {
         roomsPath = []
         selections = [:]
         scope = .chats
+        isShowingArchive = false
         selectedRoomID = nil
         thread = nil
         threadsRoomID = nil
@@ -184,6 +193,7 @@ extension Route {
     var roomID: String? {
         switch self {
         case .conversation(let id), .message(let id, _), .info(let id), .search(let id): id
+        case .archived: nil
         }
     }
 }

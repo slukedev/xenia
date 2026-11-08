@@ -14,7 +14,7 @@ pub struct ListSnapshot {
 }
 
 /// Bumped when the records change shape, so an old snapshot is ignored rather than misread.
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Stored {
@@ -56,6 +56,7 @@ mod tests {
             is_favourite: true,
             favourite_order: None,
             is_low_priority: false,
+            is_archived: true,
             is_invite: false,
             is_public: false,
             inviter_name: None,

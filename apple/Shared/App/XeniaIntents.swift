@@ -89,7 +89,7 @@ struct ConversationQuery: EntityStringQuery {
     @MainActor
     func suggestedEntities() async throws -> [ConversationEntity] {
         guard !model.isLockedForIntents else { return [] }
-        let rooms = model.rooms.filter { !$0.isInvite }
+        let rooms = model.rooms.filter { !$0.isInvite && !$0.isArchived }
         let favorites = PinOrder.sorted(rooms.filter(\.isFavourite))
         let recent = rooms.filter { !$0.isFavourite }.prefix(12)
         return (favorites + recent).map { ConversationEntity($0) }

@@ -74,6 +74,9 @@ final class AppModel {
     var queries: [Scope: String] = [.chats: "", .rooms: ""] { didSet { rebuildLists() } }
     /// What each list shows, derived from `rooms`, `filters` and `queries`.
     private(set) var lists: [Scope: [RoomSummary]] = [.chats: [], .rooms: []]
+    /// Each list's archived conversations, behind its Archived row.
+    private(set) var archivedLists: [Scope: [RoomSummary]] = [.chats: [], .rooms: []]
+    private(set) var archiveSummaries: [Scope: ArchiveSummary] = [:]
     private(set) var unreadTotals: [Scope: Int] = [.chats: 0, .rooms: 0]
 
     let navigation = Navigation()
@@ -727,27 +730,37 @@ final class AppModel {
 
     private func rebuildLists() {
         var totals: [Scope: Int] = [:]
+        var summaries: [Scope: ArchiveSummary] = [:]
         for scope in [Scope.chats, .rooms] {
             // The list in one tab isn't worked out twice when the tabs are one list.
             if !(isUnified && scope == .chats) {
                 setList(scope, client.filterRooms(
                     rooms: rooms, scope: scope, filter: filters[scope] ?? .all, query: queries[scope] ?? ""
                 ))
+                setArchived(scope, client.filterRooms(rooms: rooms, scope: scope, filter: .archived, query: ""))
             }
-            totals[scope] = rooms.reduce(0) { $0 + ($1.scope == scope && $1.isUnread ? 1 : 0) }
+            totals[scope] = Int(client.countUnread(rooms: rooms, scope: scope))
+            summaries[scope] = client.archiveSummary(rooms: rooms, scope: scope)
         }
         if isUnified {
             setList(.chats, client.filterAllRooms(rooms: rooms, filter: filters[.chats] ?? .all, query: queries[.chats] ?? ""))
-            totals[.chats] = rooms.reduce(0) { $0 + ($1.isUnread ? 1 : 0) }
+            setArchived(.chats, client.filterAllRooms(rooms: rooms, filter: .archived, query: ""))
+            totals[.chats] = Int(client.countUnread(rooms: rooms, scope: nil))
             totals[.rooms] = 0
+            summaries[.chats] = client.archiveSummary(rooms: rooms, scope: nil)
         }
         // The tab badges read these: setting the same counts would draw the tabs again on every sync.
         if totals != unreadTotals { unreadTotals = totals }
+        if summaries != archiveSummaries { archiveSummaries = summaries }
     }
 
     /// A list that hasn't changed (a message in a room it filters out) isn't drawn again.
     private func setList(_ scope: Scope, _ list: [RoomSummary]) {
         if lists[scope] != list { lists[scope] = list }
+    }
+
+    private func setArchived(_ scope: Scope, _ list: [RoomSummary]) {
+        if archivedLists[scope] != list { archivedLists[scope] = list }
     }
 
     // MARK: Settings that reach the core

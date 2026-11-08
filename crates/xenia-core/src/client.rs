@@ -21,7 +21,11 @@ use matrix_sdk::{
             session::get_login_types::v3::LoginType,
         },
         events::room::encryption::RoomEncryptionEventContent,
-        events::{InitialStateEvent, receipt::ReceiptThread},
+        events::{
+            InitialStateEvent,
+            receipt::ReceiptThread,
+            tag::{TagInfo, TagName},
+        },
         serde::Raw,
     },
 };
@@ -35,12 +39,12 @@ use crate::{
     encryption::{EncryptionStatus, watch_encryption},
     error::{XeniaError, Result},
     models::{
-        Account, ConnectionState, ListFilter, Member, NotificationMode, Person, RoomSummary, Scope, SessionState,
-        SignOutReason,
+        Account, ArchiveSummary, ConnectionState, ListFilter, Member, NotificationMode, Person, RoomSummary, Scope,
+        SessionState, SignOutReason,
     },
     notifications::{IncomingMessage, NotificationContext},
     platform::{ClientConfig, SecretStore},
-    rooms::{RoomListHub, rules},
+    rooms::{ARCHIVED_TAG, RoomListHub, rules},
     runtime::{TaskGuard, run},
     session::{
         Process, SESSION_KEY, Server, StoredSession, build_client, lock_crypto_store, new_passphrase, remove_stores,
@@ -787,7 +791,18 @@ impl XeniaClient {
 
     /// Conversations in a scope that want attention, for badges.
     pub fn unread_total(&self, scope: Scope) -> u32 {
-        rules::unread_total(&self.room_snapshot(), scope)
+        rules::unread_total(&self.room_snapshot(), Some(scope))
+    }
+
+    /// Conversations in a list the app already holds that want attention, in one scope or
+    /// everywhere (the same rule as `unread_total`).
+    pub fn count_unread(&self, rooms: Vec<RoomSummary>, scope: Option<Scope>) -> u32 {
+        rules::unread_total(&rooms, scope)
+    }
+
+    /// What a list's Archived row says: how many are archived, and how many of those are unread.
+    pub fn archive_summary(&self, rooms: Vec<RoomSummary>, scope: Option<Scope>) -> ArchiveSummary {
+        rules::archive_summary(&rooms, scope)
     }
 
     /// Filters a list the app already holds (the same rules as `rooms`).
@@ -878,12 +893,12 @@ impl XeniaClient {
         .await
     }
 
-    /// Marks every unread conversation in a list (or everywhere) read.
+    /// Marks every unread conversation in a list (or everywhere) read, leaving Archived as it is.
     pub async fn mark_all_read(&self, scope: Option<Scope>) -> Result<()> {
         let snapshot = self.room_snapshot();
         let ids: Vec<String> = snapshot
             .iter()
-            .filter(|r| !r.is_invite && r.is_unread && scope.is_none_or(|s| r.scope == s))
+            .filter(|r| !r.is_invite && rules::counts_toward_badge(r) && scope.is_none_or(|s| r.scope == s))
             .map(|r| r.id.clone())
             .collect();
         for id in ids {
@@ -899,6 +914,23 @@ impl XeniaClient {
         let hub = self.hub().await?;
         run(async move {
             room.set_is_favourite(favourite, None).await?;
+            hub.refresh(&room_id);
+            Ok(())
+        })
+        .await
+    }
+
+    /// Archives a conversation or brings it back. It's a room tag, so every device agrees.
+    pub async fn set_archived(&self, room_id: String, archived: bool) -> Result<()> {
+        let room = self.sdk_room(&room_id).await?;
+        let hub = self.hub().await?;
+        run(async move {
+            let tag = TagName::from(ARCHIVED_TAG);
+            if archived {
+                room.set_tag(tag, TagInfo::new()).await?;
+            } else {
+                room.remove_tag(tag).await?;
+            }
             hub.refresh(&room_id);
             Ok(())
         })

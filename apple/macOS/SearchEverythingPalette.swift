@@ -279,7 +279,7 @@ private struct SearchEverythingPalette: View {
             guard action == .markAllRead else { return true }
             let scope = markScope
             return model.rooms.contains { room in
-                room.isUnread && !room.isInvite && scope.map { room.scope == $0 } ?? true
+                room.isUnread && !room.isInvite && !room.isArchived && scope.map { room.scope == $0 } ?? true
             }
         }
     }

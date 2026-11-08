@@ -6,6 +6,7 @@ import SwiftUI
 struct ListPlaceholder: View {
     let scope: Scope
     let isEmpty: Bool
+    var isArchive = false
 
     @Environment(AppModel.self) private var model
 
@@ -27,6 +28,12 @@ struct ListPlaceholder: View {
         if !model.roomsLoaded {
             // The list draws its own blank rows meanwhile.
             EmptyView()
+        } else if isArchive {
+            ContentUnavailableView {
+                Label("No Archived Conversations", systemImage: "archivebox")
+            } description: {
+                Text("Archive a conversation to keep it out of your list without leaving it.")
+            }
         } else if !query.trimmingCharacters(in: .whitespaces).isEmpty {
             ContentUnavailableView.search(text: query)
         } else if filter != .all {

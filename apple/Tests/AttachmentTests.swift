@@ -155,7 +155,7 @@ struct AttachmentTests {
     private static func room(_ name: String, favourite: Bool, invite: Bool = false, order: Double? = nil) -> RoomSummary {
         RoomSummary(
             id: "!\(name):localhost", name: name, avatarUrl: nil, avatarSeed: name, dmUserId: nil, scope: .chats,
-            isDirect: true, isDm: true, isEncrypted: false, isFavourite: favourite, favouriteOrder: order, isLowPriority: false,
+            isDirect: true, isDm: true, isEncrypted: false, isFavourite: favourite, favouriteOrder: order, isLowPriority: false, isArchived: false,
             isInvite: invite, isPublic: false, inviterName: nil, topic: nil, alias: nil,
             memberCount: 2, unreadCount: 0, mentionCount: 0, isMarkedUnread: false, isMuted: false,
             notificationMode: .allMessages, hasOwnNotificationMode: false, isUnread: false, unreadKind: .none,

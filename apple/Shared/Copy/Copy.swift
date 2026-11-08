@@ -191,6 +191,15 @@ enum Copy {
 }
 
 extension Copy {
+    // MARK: Archive
+
+    /// What the Archived row holds, for VoiceOver: "4 conversations, 2 unread".
+    static func archived(_ summary: ArchiveSummary) -> String {
+        let total = String(inflecting: "^[\(Int(summary.count)) conversation](inflect: true)")
+        guard summary.unread > 0 else { return total }
+        return String(localized: "\(total), \(Int(summary.unread)) unread", comment: "Archived conversations: how many, then how many have something new")
+    }
+
     // MARK: Invitations
 
     /// Where the composer would be: "Maya invited you to chat." or "Maya invited you to join."

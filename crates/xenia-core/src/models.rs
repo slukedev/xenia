@@ -71,6 +71,8 @@ pub enum ListFilter {
     All,
     Unread,
     Favourites,
+    /// Only archived conversations, which every other filter leaves out.
+    Archived,
 }
 
 /// What a conversation row's leading dot says.
@@ -111,6 +113,8 @@ pub struct RoomSummary {
     /// Where the person put this pin among the others: the favourite tag's `order`, from 0 to 1.
     pub favourite_order: Option<f64>,
     pub is_low_priority: bool,
+    /// Put away in Archived, out of the main list and its badges, on every device.
+    pub is_archived: bool,
     pub is_invite: bool,
     pub is_public: bool,
     /// For invitations: who invited me.
@@ -139,6 +143,14 @@ pub struct RoomSummary {
     pub draft: Option<String>,
     /// The latest message I sent is still sending, or failed.
     pub last_send_state: Option<SendState>,
+}
+
+/// The archived conversations in a list, for the row that leads to them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct ArchiveSummary {
+    pub count: u32,
+    /// How many of them have something new.
+    pub unread: u32,
 }
 
 /// The second line of a conversation row.

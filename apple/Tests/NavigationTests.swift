@@ -105,7 +105,7 @@ struct ListAnimationTests {
     private static func room(_ name: String, preview: RoomPreview = .message(sender: nil, body: .text(text: "Hi"), mentionsMe: false, isOwn: false)) -> RoomSummary {
         RoomSummary(
             id: "!\(name):localhost", name: name, avatarUrl: nil, avatarSeed: name, dmUserId: nil, scope: .rooms,
-            isDirect: false, isDm: false, isEncrypted: false, isFavourite: false, favouriteOrder: nil, isLowPriority: false,
+            isDirect: false, isDm: false, isEncrypted: false, isFavourite: false, favouriteOrder: nil, isLowPriority: false, isArchived: false,
             isInvite: false, isPublic: false, inviterName: nil, topic: nil, alias: nil,
             memberCount: 3, unreadCount: 0, mentionCount: 0, isMarkedUnread: false, isMuted: false,
             notificationMode: .allMessages, hasOwnNotificationMode: false, isUnread: false, unreadKind: .none,

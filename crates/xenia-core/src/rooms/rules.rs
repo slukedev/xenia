@@ -2,7 +2,7 @@
 //! notifications, so they always agree. No SDK: these are unit tested.
 
 use crate::{
-    models::{ListFilter, RoomSummary, Scope, UnreadKind},
+    models::{ArchiveSummary, ListFilter, RoomSummary, Scope, UnreadKind},
     text::normalize_for_search,
 };
 
@@ -64,8 +64,9 @@ pub(crate) fn filter_rooms(
 ) -> Vec<RoomSummary> {
     let shown = rooms.iter().filter(|r| {
         scope.is_none_or(|s| r.scope == s)
+            && r.is_archived == (filter == ListFilter::Archived)
             && match filter {
-                ListFilter::All => true,
+                ListFilter::All | ListFilter::Archived => true,
                 ListFilter::Unread => r.is_unread,
                 ListFilter::Favourites => r.is_favourite,
             }
@@ -76,9 +77,21 @@ pub(crate) fn filter_rooms(
     invites
 }
 
-/// How many conversations in a scope want attention, for its tab badge.
-pub(crate) fn unread_total(rooms: &[RoomSummary], scope: Scope) -> u32 {
-    rooms.iter().filter(|r| r.scope == scope && r.is_unread).count() as u32
+/// Wants attention from the main list: archived conversations wait in Archived instead.
+pub(crate) fn counts_toward_badge(room: &RoomSummary) -> bool {
+    room.is_unread && !room.is_archived
+}
+
+/// How many conversations in a scope (or everywhere) want attention, for its tab badge.
+pub(crate) fn unread_total(rooms: &[RoomSummary], scope: Option<Scope>) -> u32 {
+    rooms.iter().filter(|r| scope.is_none_or(|s| r.scope == s) && counts_toward_badge(r)).count() as u32
+}
+
+/// The archived conversations in a scope (or everywhere), for the row that leads to them.
+pub(crate) fn archive_summary(rooms: &[RoomSummary], scope: Option<Scope>) -> ArchiveSummary {
+    let archived = rooms.iter().filter(|r| r.is_archived && scope.is_none_or(|s| r.scope == s));
+    let (count, unread) = archived.fold((0, 0), |(count, unread), r| (count + 1, unread + u32::from(r.is_unread)));
+    ArchiveSummary { count, unread }
 }
 
 #[cfg(test)]
@@ -100,6 +113,7 @@ pub(crate) mod tests {
             is_favourite: false,
             favourite_order: None,
             is_low_priority: false,
+            is_archived: false,
             is_invite: false,
             is_public: false,
             inviter_name: None,
@@ -175,7 +189,37 @@ pub(crate) mod tests {
         assert_eq!(filter_rooms(&rooms, Some(Scope::Rooms), ListFilter::Unread, "").len(), 1);
         assert_eq!(filter_rooms(&rooms, Some(Scope::Rooms), ListFilter::Favourites, "")[0].id, "!b");
         assert_eq!(filter_rooms(&rooms, None, ListFilter::Unread, "").len(), 1);
-        assert_eq!(unread_total(&rooms, Scope::Rooms), 1);
-        assert_eq!(unread_total(&rooms, Scope::Chats), 0);
+        assert_eq!(unread_total(&rooms, Some(Scope::Rooms)), 1);
+        assert_eq!(unread_total(&rooms, Some(Scope::Chats)), 0);
+        assert_eq!(unread_total(&rooms, None), 1);
+    }
+
+    #[test]
+    fn archived_conversations_leave_the_list_and_its_badges() {
+        let mut bot = room("!bot", "Telegram bridge bot", true);
+        bot.is_archived = true;
+        bot.is_unread = true;
+        bot.is_favourite = true;
+        let mut quiet = room("!old", "Old group", false);
+        quiet.is_archived = true;
+        let mut maya = room("!maya", "Maya", true);
+        maya.is_unread = true;
+        let rooms = vec![bot, quiet, maya];
+
+        let ids = |filter, scope| -> Vec<String> {
+            filter_rooms(&rooms, scope, filter, "").into_iter().map(|r| r.id).collect()
+        };
+        assert_eq!(ids(ListFilter::All, Some(Scope::Chats)), vec!["!maya"]);
+        assert_eq!(ids(ListFilter::Unread, None), vec!["!maya"]);
+        // Still pinned, so unarchiving puts it back where it was, but not among the pins now.
+        assert!(ids(ListFilter::Favourites, None).is_empty());
+        assert_eq!(ids(ListFilter::Archived, None), vec!["!bot", "!old"]);
+        assert_eq!(ids(ListFilter::Archived, Some(Scope::Rooms)), vec!["!old"]);
+        assert_eq!(filter_rooms(&rooms, None, ListFilter::Archived, "telegram").len(), 1);
+
+        assert_eq!(unread_total(&rooms, Some(Scope::Chats)), 1);
+        assert_eq!(archive_summary(&rooms, None), ArchiveSummary { count: 2, unread: 1 });
+        assert_eq!(archive_summary(&rooms, Some(Scope::Rooms)), ArchiveSummary { count: 1, unread: 0 });
+        assert_eq!(archive_summary(&rooms[2..], None), ArchiveSummary { count: 0, unread: 0 });
     }
 }

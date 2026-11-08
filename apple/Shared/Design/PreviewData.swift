@@ -17,7 +17,7 @@ enum PreviewData {
         RoomSummary(
             id: id, name: name, avatarUrl: nil, avatarSeed: "@\(name.lowercased()):localhost",
             dmUserId: direct ? "@\(name.lowercased()):localhost" : nil, scope: direct ? .chats : .rooms,
-            isDirect: direct, isDm: direct, isEncrypted: true, isFavourite: false, favouriteOrder: nil, isLowPriority: false,
+            isDirect: direct, isDm: direct, isEncrypted: true, isFavourite: false, favouriteOrder: nil, isLowPriority: false, isArchived: false,
             isInvite: invite, isPublic: false, inviterName: invite ? "Maya Okafor" : nil, topic: nil, alias: nil,
             memberCount: direct ? 2 : 6, unreadCount: unread == .none ? 0 : 2, mentionCount: unread == .mention ? 1 : 0,
             isMarkedUnread: false, isMuted: muted, notificationMode: muted ? .mute : .allMessages, hasOwnNotificationMode: muted,

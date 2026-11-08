@@ -23,6 +23,13 @@ struct CopyTests {
         #expect(Copy.note(.renamed(oldName: "Sam", newName: "Samuel")) == "Sam is now Samuel")
     }
 
+    @Test("The Archived row counts its conversations and what's unread in them")
+    func archived() {
+        #expect(Copy.archived(ArchiveSummary(count: 1, unread: 0)) == "1 conversation")
+        #expect(Copy.archived(ArchiveSummary(count: 4, unread: 0)) == "4 conversations")
+        #expect(Copy.archived(ArchiveSummary(count: 4, unread: 2)) == "4 conversations, 2 unread")
+    }
+
     @Test("Errors become sentences")
     func errors() {
         #expect(Copy.error(XeniaError.InvalidCredentials) == "The username or password is incorrect. Check them and try again.")
